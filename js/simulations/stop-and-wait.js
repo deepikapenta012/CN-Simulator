@@ -62,7 +62,7 @@
         if (event.visual === 'delivered') return [{ type: 'ack-arrival', label: 'ACK' + event.frame + ' received' }];
         return [];
       });
-      host.innerHTML = NetSim.Components.renderTimingDiagram(actions, actions.length - 1) + '<p class="timing-caption">Each step adds a transmission event. Frames travel sender → receiver; ACKs travel receiver → sender.</p>';
+      host.innerHTML = NetSim.Components.renderTimingDiagram(actions, actions.length - 1) + '<p class="timing-caption">Time moves from top to bottom. Frames travel sender → receiver; ACKs return receiver → sender.</p>';
 
       const efficiency = stats.attempts ? (totalFrames / stats.attempts) * 100 : 100;
       ctx.setMetrics([

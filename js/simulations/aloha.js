@@ -21,6 +21,33 @@
     let timer = null;
     let host = null;
 
+    function stationName(id) { return String.fromCharCode(64 + id); }
+
+    function slotExplanation(stations, outcome) {
+      const names = stations.map(stationName);
+      if (!stations.length) return 'No station attempts in this slot, so the shared channel stays idle.';
+      if (outcome === 'success') return 'Station ' + names[0] + ' transmits alone on the shared channel; its frame succeeds.';
+      if (stations.length > 1) return 'Stations ' + names.join(' and ') + ' transmit together. Their frames collide; they retry after a random delay.';
+      return 'Station ' + names[0] + ' transmits, but its frame overlaps activity in a neighboring slot. It retries after a random delay.';
+    }
+
+    function networkSvg(active, outcome) {
+      const cx = 300, cy = 185, rx = 220, ry = 125;
+      const nodes = [];
+      for (let s = 1; s <= stationCount; s++) {
+        const angle = -Math.PI / 2 + (2 * Math.PI * (s - 1)) / stationCount;
+        const x = cx + Math.cos(angle) * rx;
+        const y = cy + Math.sin(angle) * ry;
+        const isActive = active.includes(s);
+        const state = index < 0 ? 'READY' : isActive ? outcome === 'collision' ? 'RETRY WAIT' : 'TRANSMITTING' : 'WAITING';
+        const klass = isActive ? outcome === 'collision' ? 'is-collision' : 'is-sending' : '';
+        nodes.push('<line class="aloha-link ' + klass + '" x1="' + cx + '" y1="' + cy + '" x2="' + x + '" y2="' + y + '"/><g class="aloha-node ' + klass + '"><circle cx="' + x + '" cy="' + y + '" r="42"/><text class="aloha-node-name" x="' + x + '" y="' + (y - 3) + '">Station ' + stationName(s) + '</text><text class="aloha-node-state" x="' + x + '" y="' + (y + 14) + '">' + state + '</text></g>');
+      }
+      const channel = index < 0 ? 'READY' : outcome === 'collision' ? 'COLLISION' : active.length ? 'BUSY' : 'IDLE';
+      const channelClass = outcome === 'collision' && index >= 0 ? 'is-collision' : active.length && index >= 0 ? 'is-busy' : '';
+      return '<svg class="aloha-network-svg" viewBox="0 0 600 370" role="img" aria-label="' + stationCount + ' stations connected to one shared ALOHA channel">' + nodes.join('') + '<g class="aloha-hub ' + channelClass + '"><rect x="224" y="145" width="152" height="80" rx="4"/><text class="aloha-hub-name" x="300" y="177">SHARED CHANNEL</text><text class="aloha-hub-state" x="300" y="199">' + channel + '</text></g></svg>';
+    }
+
     function buildRun() {
       attempts = [];
       for (let t = 0; t < totalSlots; t++) {
@@ -39,19 +66,15 @@
 
     function draw() {
       const shown = Math.max(0, index + 1);
-      const cells = attempts.slice(0, shown).map((stations, t) => {
-        const o = outcomes[t];
-        const cls = o === 'success' ? 'delivered' : o === 'collision' ? 'lost' : 'pending';
-        const label = stations.length ? stations.map((s) => 'S' + s).join(',') : '\u00b7';
-        return `<span class="packet-chip ${cls}" title="Slot ${t}">${label}</span>`;
-      }).join('');
-
+      const active = index >= 0 ? attempts[index] : [];
+      const outcome = index >= 0 ? outcomes[index] : 'idle';
+      const explanation = index >= 0 ? slotExplanation(active, outcome) : 'Press Start or Step to see stations contend for one shared channel.';
       host.innerHTML = `
-        <p class="net-hint" style="margin-bottom:0.5rem;">${mode === 'pure' ? 'Pure' : 'Slotted'} ALOHA \u2014 ${stationCount} stations, each attempting with probability ${(p * 100).toFixed(0)}% per slot</p>
-        <div class="packet-status-strip">${cells || '<span class="net-hint">Press Start or Step to run the slots.</span>'}</div>
-        <p class="net-hint" style="margin-top:0.8rem;">green = successful transmission &nbsp;\u00b7&nbsp; red = collision &nbsp;\u00b7&nbsp; grey \u00b7 = idle slot</p>
+        <p class="net-hint aloha-intro">${mode === 'pure' ? 'Pure' : 'Slotted'} ALOHA · ${stationCount} stations connect to one shared channel · Slot ${shown} / ${totalSlots}</p>
+        <div class="aloha-network">${networkSvg(active, outcome)}</div>
+        <p class="aloha-event ${outcome === 'collision' && index >= 0 ? 'is-collision' : active.length && index >= 0 ? 'is-success' : ''}">${explanation}</p>
+        <p class="aloha-note">ALOHA does not listen before transmitting. If frames overlap, they collide and stations retry after a random delay. CSMA protocols sense a busy channel and wait.</p>
       `;
-
       const seen = outcomes.slice(0, shown);
       const successes = seen.filter((o) => o === 'success').length;
       const collisions = seen.filter((o) => o === 'collision').length;
@@ -65,7 +88,6 @@
         { label: 'Theoretical Max Efficiency', value: mode === 'pure' ? '18.4% (1/2e)' : '36.8% (1/e)' }
       ]);
     }
-
     function renderParams() {
       ctx.params.hidden = false;
       ctx.params.innerHTML = `
@@ -110,9 +132,10 @@
       index += 1;
       const stations = attempts[index];
       const o = outcomes[index];
+      const names = stations.map(stationName);
       const text = o === 'idle' ? 'Slot ' + index + ': idle, no attempts.'
-        : o === 'success' ? 'Slot ' + index + ': Station ' + stations[0] + ' transmitted successfully \u2713'
-        : 'Slot ' + index + ': collision between ' + stations.map((s) => 'Station ' + s).join(' and ') + ' \u2717';
+        : o === 'success' ? 'Slot ' + index + ': Station ' + names[0] + ' transmitted successfully \u2713'
+        : 'Slot ' + index + ': collision involving ' + names.map((name) => 'Station ' + name).join(' and ') + ' \u2717';
       ctx.log(text, o === 'success' ? 'success' : o === 'collision' ? 'warning' : undefined);
       draw();
     }

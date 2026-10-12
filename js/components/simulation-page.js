@@ -92,6 +92,8 @@
         <p>${notes[0]}</p>
         <h3>Why it is used</h3>
         <p>${notes[1]}</p>
+        <h3>In this simulation</h3>
+        <p>${sim.desc}</p>
       </section>
 
       ${ERROR_CONTROL_ALGORITHMS[sim.id] ? `<section class="error-control-algorithms" aria-label="Sender and receiver algorithms">
@@ -108,34 +110,12 @@
       </div>
       <div class="sim-layout">
         <div>
-          <div class="sim-canvas" id="simCanvas"></div>
-          ${NetSim.Components.controlsHTML()}
+          <div class="sim-canvas ${ERROR_CONTROL_ALGORITHMS[sim.id] ? 'error-control-canvas' : ''}" id="simCanvas"></div>
+          ${ERROR_CONTROL_ALGORITHMS[sim.id] ? '' : NetSim.Components.controlsHTML()}
           <div class="sim-params" id="simParams" hidden></div>
-        </div>
-        <div class="sim-side">
-          ${NetSim.Components.eventLogHTML()}
-          ${NetSim.Components.metricsHTML([])}
         </div>
       </div>
       </section>`}
-
-      ${staticContent ? '' : `<div class="sim-how">
-        <h2 class="section-label">How it works</h2>
-        <p>${sim.desc} This page follows NetSim's common simulation template — the
-        same Start, Pause, Step and Reset controls, event log and metrics panel are
-        used across every simulation so the interaction pattern stays consistent
-        as new simulations are added.</p>
-      </div>`}
-      ${staticContent ? '' : `<div class="sim-learning-details">
-        <section class="sim-how">
-          <h2 class="section-label">Advantages</h2>
-          <ul class="sim-learning-points"><li>${notes[2]}</li></ul>
-        </section>
-        <section class="sim-how">
-          <h2 class="section-label">Disadvantages and solutions or alternatives</h2>
-          <ul class="sim-learning-points"><li>${notes[3]}</li></ul>
-        </section>
-      </div>`}
     `;
 
     if (staticContent) {

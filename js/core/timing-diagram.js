@@ -8,32 +8,37 @@
 
   function render(actions, activeIndex) {
     const visible = actions.slice(0, activeIndex + 1);
-    const width = Math.max(420, 115 + visible.length * 76);
+    const width = 520;
+    const height = Math.max(180, 90 + visible.length * 58);
     const marks = visible.map((action, i) => {
-      const x = 112 + i * 76;
+      const y = 72 + i * 58;
       const isAck = action.type === 'ack';
-      const y1 = isAck ? 138 : 58;
-      const y2 = isAck ? 58 : 138;
+      const x1 = isAck ? 390 : 120;
+      const x2 = isAck ? 120 : 390;
+      const y2 = y + 34;
       const color = action.outcome === 'lost' ? 'var(--err)' : isAck ? 'var(--teal)' : action.type === 'timeout' ? 'var(--warn)' : 'var(--accent)';
-      if (action.type === 'timeout') return `<g><text x="${x}" y="64" text-anchor="middle" class="td-timeout">⌛</text><text x="${x}" y="83" text-anchor="middle" class="td-label">timeout</text></g>`;
+      if (action.type === 'timeout') return `<g><text x="120" y="${y + 5}" text-anchor="middle" class="td-timeout">⌛ timeout</text></g>`;
       if (action.type === 'deliver' || action.type === 'ack-arrival') {
-        const y = action.type === 'ack-arrival' ? 58 : 138;
-        return `<g><circle cx="${x}" cy="${y}" r="5" fill="var(--ok)"/><text x="${x}" y="${y + 20}" text-anchor="middle" class="td-label">${escapeText(action.label || 'delivered')}</text></g>`;
+        const x = action.type === 'ack-arrival' ? 120 : 390;
+        return `<g><circle cx="${x}" cy="${y}" r="5" fill="var(--ok)"/><text x="${x + 10}" y="${y + 4}" class="td-label">${escapeText(action.label || 'delivered')}</text></g>`;
       }
-      if (action.type === 'discard') return `<g><path d="M ${x - 5} 132 L ${x + 5} 144 M ${x + 5} 132 L ${x - 5} 144" stroke="var(--err)" stroke-width="2"/><text x="${x}" y="159" text-anchor="middle" class="td-label">${escapeText(action.label)}</text></g>`;
-      if (action.outcome === 'lost') return `<g><line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${color}" stroke-dasharray="4 4"/><path d="M ${x - 5} 94 L ${x + 5} 104 M ${x + 5} 94 L ${x - 5} 104" stroke="${color}" stroke-width="2"/><text x="${x}" y="88" text-anchor="middle" class="td-label">${escapeText(action.label)} lost</text></g>`;
-      return `<g><line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${color}" stroke-width="2" marker-end="url(#td-arrow)"/><text x="${x + 7}" y="${(y1 + y2) / 2}" class="td-label">${escapeText(action.label)}</text></g>`;
+      if (action.type === 'discard') return `<g><path d="M 384 ${y - 6} L 396 ${y + 6} M 396 ${y - 6} L 384 ${y + 6}" stroke="var(--err)" stroke-width="2"/><text x="402" y="${y + 4}" class="td-label">${escapeText(action.label)}</text></g>`;
+      if (action.outcome === 'lost') {
+        const midX = (x1 + x2) / 2;
+        return `<g><line x1="${x1}" y1="${y}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-dasharray="4 4"/><path d="M ${midX - 5} ${y + 12} L ${midX + 5} ${y + 22} M ${midX + 5} ${y + 12} L ${midX - 5} ${y + 22}" stroke="${color}" stroke-width="2"/><text x="${midX}" y="${y - 4}" text-anchor="middle" class="td-label">${escapeText(action.label)} lost</text></g>`;
+      }
+      return `<g><line x1="${x1}" y1="${y}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="2" marker-end="url(#td-arrow)"/><text x="${(x1 + x2) / 2}" y="${y + 12}" text-anchor="middle" class="td-label">${escapeText(action.label)}</text></g>`;
     }).join('');
     const ticks = visible.map((_, i) => {
-      const x = 112 + i * 76;
-      return `<line x1="${x}" y1="188" x2="${x}" y2="194" class="td-tick"/><text x="${x}" y="209" text-anchor="middle" class="td-label">${i + 1}</text>`;
+      const y = 72 + i * 58;
+      return `<line x1="484" y1="${y}" x2="496" y2="${y}" class="td-tick"/><text x="505" y="${y + 4}" class="td-label">${i + 1}</text>`;
     }).join('');
-    return `<div class="timing-diagram-scroll"><svg class="timing-diagram" style="width:${width}px" viewBox="0 0 ${width} 224" role="img" aria-label="Sender and receiver timing diagram. Time moves from left to right.">
+    return `<div class="timing-diagram-scroll"><svg class="timing-diagram" style="width:${width}px;height:${height}px" viewBox="0 0 ${width} ${height}" role="img" aria-label="Sender and receiver timing diagram. Time moves from top to bottom.">
       <defs><marker id="td-arrow" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L0,7 L6,3.5 z" fill="var(--ink-soft)"/></marker></defs>
-      <text x="8" y="62" class="td-lane">Sender</text><text x="8" y="142" class="td-lane">Receiver</text>
-      <line x1="88" y1="58" x2="${width - 12}" y2="58" class="td-lane-line"/><line x1="88" y1="138" x2="${width - 12}" y2="138" class="td-lane-line"/>
-      ${marks}<line x1="88" y1="188" x2="${width - 12}" y2="188" class="td-time-line" marker-end="url(#td-arrow)"/>${ticks}
-      <text x="${width - 16}" y="219" text-anchor="end" class="td-label">time →</text>
+      <text x="120" y="24" text-anchor="middle" class="td-lane">Sender</text><text x="390" y="24" text-anchor="middle" class="td-lane">Receiver</text>
+      <line x1="120" y1="38" x2="120" y2="${height - 18}" class="td-lane-line"/><line x1="390" y1="38" x2="390" y2="${height - 18}" class="td-lane-line"/>
+      ${marks}<line x1="490" y1="38" x2="490" y2="${height - 8}" class="td-time-line" marker-end="url(#td-arrow)"/>${ticks}
+      <text x="503" y="${height - 2}" class="td-label">time ↓</text>
     </svg></div>`;
   }
 

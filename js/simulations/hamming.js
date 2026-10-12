@@ -30,10 +30,13 @@
 
   NetSim.SimRegistry.register('hamming', function factory(ctx) {
     let dataBits = [1, 0, 1, 1];
+    let receiverInput = '';
     let introduceError = false;
-    let phases = [];
-    let index = -1;
-    let timer = null;
+    let phases = { sender: [], receiver: [] };
+    let senderIndex = -1;
+    let receiverIndex = -1;
+    let senderTimer = null;
+    let receiverTimer = null;
     let host = null;
     let result = null;
 
@@ -41,120 +44,148 @@
       const { codeword } = encode(dataBits);
       let received = codeword.slice();
       let errorPos = -1;
-      if (introduceError) {
+      if (receiverInput) {
+        received = receiverInput.split('').map(Number);
+        for (let i = 0; i < codeword.length; i++) {
+          if (codeword[i] !== received[i]) { errorPos = i + 1; break; }
+        }
+      } else if (introduceError) {
         errorPos = 1 + Math.floor(Math.random() * 7);
         received[errorPos - 1] = received[errorPos - 1] ? 0 : 1;
       }
       const synd = syndrome(received);
       const corrected = received.slice();
       if (synd.errorPos > 0) corrected[synd.errorPos - 1] = corrected[synd.errorPos - 1] ? 0 : 1;
-      return { codeword, received, errorPos, synd, corrected };
+      return { codeword, received, errorPos, receiverManual: Boolean(receiverInput), synd, corrected };
     }
 
     function buildPhases() {
       result = buildResult();
-      const p = [];
-      p.push({ text: 'Data bits d1 d2 d3 d4 = ' + dataBits.join(''), highlight: [] });
-      p.push({ text: 'Data bits go into the non-power-of-2 positions: 3, 5, 6, 7.', highlight: [3, 5, 6, 7] });
-      p.push({ text: 'p1 (checks positions 1,3,5,7) = d(3)\u2295d(5)\u2295d(7) = ' + result.codeword[0], highlight: [1, 3, 5, 7], stage: 'encode' });
-      p.push({ text: 'p2 (checks positions 2,3,6,7) = d(3)\u2295d(6)\u2295d(7) = ' + result.codeword[1], highlight: [2, 3, 6, 7], stage: 'encode' });
-      p.push({ text: 'p4 (checks positions 4,5,6,7) = d(5)\u2295d(6)\u2295d(7) = ' + result.codeword[3], highlight: [4, 5, 6, 7], stage: 'encode' });
-      p.push({ text: 'Final 7-bit codeword: ' + result.codeword.join(''), highlight: [], stage: 'codeword' });
-      if (introduceError) {
-        p.push({ text: 'Introducing an error at position ' + result.errorPos + ': ' + result.received.join(''), highlight: [result.errorPos], level: 'warning', stage: 'error' });
+      const sender = [];
+      sender.push({ text: 'Data bits d1 d2 d3 d4 = ' + dataBits.join(''), highlight: [] });
+      sender.push({ text: 'Place data at positions 3, 5, 6, and 7.', highlight: [3, 5, 6, 7] });
+      sender.push({ text: 'Calculate p1 over positions 1, 3, 5, 7 = ' + result.codeword[0], highlight: [1, 3, 5, 7], stage: 'encode' });
+      sender.push({ text: 'Calculate p2 over positions 2, 3, 6, 7 = ' + result.codeword[1], highlight: [2, 3, 6, 7], stage: 'encode' });
+      sender.push({ text: 'Calculate p4 over positions 4, 5, 6, 7 = ' + result.codeword[3], highlight: [4, 5, 6, 7], stage: 'encode' });
+      sender.push({ text: 'Transmit 7-bit codeword: ' + result.codeword.join(''), highlight: [], stage: 'codeword' });
+      const receiver = [];
+      if (introduceError && !receiverInput) {
+        receiver.push({ text: 'Received with an error at position ' + result.errorPos + ': ' + result.received.join(''), highlight: [result.errorPos], level: 'warning', stage: 'error' });
       } else {
-        p.push({ text: 'No error introduced \u2014 received codeword is unchanged: ' + result.received.join(''), highlight: [], stage: 'error' });
+        receiver.push({ text: 'Received codeword: ' + result.received.join(''), highlight: [], stage: 'error' });
       }
-      p.push({ text: 'Receiver recomputes c1 = checks 1,3,5,7 \u2192 ' + result.synd.c1, highlight: [1, 3, 5, 7], stage: 'check' });
-      p.push({ text: 'Receiver recomputes c2 = checks 2,3,6,7 \u2192 ' + result.synd.c2, highlight: [2, 3, 6, 7], stage: 'check' });
-      p.push({ text: 'Receiver recomputes c4 = checks 4,5,6,7 \u2192 ' + result.synd.c4, highlight: [4, 5, 6, 7], stage: 'check' });
-      p.push({
+      receiver.push({ text: 'Recalculate c1 over positions 1, 3, 5, 7 = ' + result.synd.c1, highlight: [1, 3, 5, 7], stage: 'check' });
+      receiver.push({ text: 'Recalculate c2 over positions 2, 3, 6, 7 = ' + result.synd.c2, highlight: [2, 3, 6, 7], stage: 'check' });
+      receiver.push({ text: 'Recalculate c4 over positions 4, 5, 6, 7 = ' + result.synd.c4, highlight: [4, 5, 6, 7], stage: 'check' });
+      receiver.push({
         text: result.synd.errorPos === 0
           ? 'Syndrome (c4 c2 c1) = 000 \u2192 no error detected.'
           : 'Syndrome (c4 c2 c1) = ' + [result.synd.c4, result.synd.c2, result.synd.c1].join('') + ' = position ' + result.synd.errorPos + ' \u2192 flip that bit to correct it: ' + result.corrected.join(''),
         highlight: result.synd.errorPos ? [result.synd.errorPos] : [],
         level: result.synd.errorPos ? 'success' : 'success', stage: 'final'
       });
-      return p;
+      return { sender, receiver };
     }
 
+    // Each endpoint has its own input, playback controls, and phase index.
     function draw() {
-      const phase = phases[Math.max(0, index)] || phases[0];
-      const shown = phase.stage === 'error' || phase.stage === 'check' || phase.stage === 'final' ? result.received : result.codeword;
-      const boxes = [1, 2, 3, 4, 5, 6, 7].map((i) => {
-        const isParityPos = [1, 2, 4].includes(i);
-        const isHi = phase.highlight.includes(i);
-        const isErrorBit = phase.stage === 'error' && i === result.errorPos;
-        const cls = ['bitbox'];
-        if (isParityPos) cls.push('is-parity');
-        if (isHi) cls.push('is-active');
-        if (isErrorBit) cls.push('is-error');
-        return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-          <span class="${cls.join(' ')}">${shown[i - 1]}</span>
-          <span style="font-size:0.65rem;color:var(--ink-faint);font-family:var(--f-mono);">${i}${isParityPos ? ' (p)' : ''}</span>
-        </div>`;
-      }).join('');
-      const senderDone = ['codeword', 'error', 'check', 'final'].includes(phase.stage);
-      const receiverStarted = ['error', 'check', 'final'].includes(phase.stage);
-      const senderStatus = senderDone
-        ? `Data <code>${dataBits.join('')}</code> encoded as <code>${result.codeword.join('')}</code>.`
-        : `Data <code>${dataBits.join('')}</code> · calculating parity bits at positions 1, 2, and 4.`;
-      const receiverStatus = !receiverStarted
-        ? 'Waiting for the sender to transmit the 7-bit codeword.'
-        : `Received <code>${result.received.join('')}</code> · syndrome <code>${[result.synd.c4, result.synd.c2, result.synd.c1].join('')}</code> · ${result.synd.errorPos ? `corrected to <code>${result.corrected.join('')}</code>` : 'no error detected'}.`;
-      host.innerHTML = `<div class="crc-stage"><div class="bitgrid" style="align-items:flex-start;">${boxes}</div></div>
-        <div class="error-control-live">
-          <article><h3>Sender · encode</h3><p>${senderStatus}</p></article>
-          <div class="error-control-transfer" aria-hidden="true">→</div>
-          <article><h3>Receiver · decode</h3><p>${receiverStatus}</p></article>
-        </div>`;
-
-      ctx.setMetrics([
-        { label: 'Data Bits', value: dataBits.join('') },
-        { label: 'Codeword', value: result.codeword.join('') },
-        { label: 'Error Introduced', value: introduceError ? 'Position ' + result.errorPos : 'No' },
-        { label: 'Syndrome (decimal)', value: String(result.synd.errorPos) },
-        { label: 'Result', value: index >= phases.length - 1 ? (result.synd.errorPos ? 'Corrected \u2192 ' + result.corrected.join('') : 'No error') : 'In progress' }
-      ]);
+      const senderPhase = phases.sender[senderIndex];
+      const receiverPhase = phases.receiver[receiverIndex];
+      function renderWord(word, highlight, markError) {
+        return [1, 2, 3, 4, 5, 6, 7].map((i) => {
+          const parity = [1, 2, 4].includes(i);
+          const cls = ['bitbox'];
+          if (parity) cls.push('is-parity');
+          if (highlight.includes(i)) cls.push('is-active');
+          if (markError && i === result.errorPos) cls.push('is-error');
+          return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;"><span class="${cls.join(' ')}">${word[i - 1]}</span><span style="font-size:0.65rem;color:var(--ink-faint);font-family:var(--f-mono);">${i}${parity ? ' (p)' : ''}</span></div>`;
+        }).join('');
+      }
+      const senderDone = senderIndex >= phases.sender.length - 1;
+      const receiverCanRun = senderDone || Boolean(receiverInput);
+      const senderHighlight = senderPhase && senderPhase.stage === 'encode' ? senderPhase.highlight : [];
+      const receiverHighlight = receiverPhase && receiverPhase.stage === 'check' ? receiverPhase.highlight : receiverPhase && receiverPhase.stage === 'final' && result.synd.errorPos ? [result.synd.errorPos] : [];
+      const receiverWord = receiverPhase && receiverPhase.stage === 'final' ? result.corrected : result.received;
+      const senderStatus = senderDone ? `Codeword sent: <code>${result.codeword.join('')}</code>` : senderPhase ? senderPhase.text : 'Enter data bits, then start or step the sender.';
+      const receiverStatus = receiverPhase && receiverPhase.stage === 'final'
+        ? `Syndrome ${[result.synd.c4, result.synd.c2, result.synd.c1].join('')} · ${result.synd.errorPos ? `corrected to ${result.corrected.join('')}` : 'no error detected'}.`
+        : receiverPhase ? receiverPhase.text : receiverCanRun ? 'Ready to receive and decode.' : 'Run the sender or enter receiver data manually.';
+      host.innerHTML = `<div class="error-control-simulations">
+        <article class="error-control-simulation"><h3>Simulation Sender Side</h3>
+          <div class="error-control-inputs"><div class="switch-text-row"><label for="hamData">Data bits (4)</label><input type="text" id="hamData" maxlength="4" value="${dataBits.join('')}" inputmode="numeric" pattern="[01]{4}"><small>Enter four binary digits.</small></div></div>
+          ${controlButtons('sender', senderTimer, senderIndex >= phases.sender.length - 1)}
+          <div class="crc-stage">${senderPhase ? `<div class="bitgrid" style="align-items:flex-start;">${renderWord(result.codeword, senderHighlight, false)}</div>` : '<p class="net-hint">Sender is ready to calculate the parity bits.</p>'}</div>
+          <p class="error-control-result">${senderStatus}</p>
+        </article>
+        <article class="error-control-simulation"><h3>Simulation Receiver Side</h3>
+          <div class="error-control-inputs"><div class="switch-text-row"><label for="hamReceiver">Received codeword (7 bits)</label><input type="text" id="hamReceiver" maxlength="7" value="${receiverInput || result.received.join('')}" inputmode="numeric" pattern="[01]{7}"><small>Enter received bits; clear the field to use sender output.</small></div>
+            <label class="switch-mode-option ${introduceError ? 'is-checked' : ''}"><input type="checkbox" id="hamErr" ${introduceError ? 'checked' : ''}>Inject a channel bit error automatically</label><small>Manual received bits take precedence over automatic error injection.</small></div>
+          ${controlButtons('receiver', receiverTimer, !receiverCanRun || receiverIndex >= phases.receiver.length - 1)}
+          <div class="crc-stage">${receiverPhase ? `<div class="bitgrid" style="align-items:flex-start;">${renderWord(receiverWord, receiverHighlight, receiverPhase.stage === 'error')}</div>` : '<p class="net-hint">Receiver is waiting for transmission.</p>'}</div>
+          <p class="error-control-result">${receiverStatus}</p>
+        </article>
+      </div>`;
     }
 
-    function renderParams() {
-      ctx.params.hidden = false;
-      ctx.params.innerHTML = `
-        <div class="switch-text-row">
-          <label for="hamData">4 data bits</label>
-          <input type="text" id="hamData" maxlength="4" value="${dataBits.join('')}">
-          <small>Enter exactly four binary digits (0 or 1).</small>
-        </div>
-        <label class="switch-mode-option ${introduceError ? 'is-checked' : ''}">
-          <input type="checkbox" id="hamErr" ${introduceError ? 'checked' : ''}>
-          Introduce a single-bit error
-        </label>
-      `;
-      ctx.params.querySelector('#hamData').addEventListener('change', (e) => {
-        const clean = e.target.value.replace(/[^01]/g, '').padEnd(4, '0').slice(0, 4);
-        dataBits = clean.split('').map(Number);
-        rebuild();
-      });
-      ctx.params.querySelector('#hamErr').addEventListener('change', (e) => { introduceError = e.target.checked; rebuild(); });
+    function controlButtons(side, running, disabled) {
+      return `<div class="sim-controls error-control-buttons" role="group" aria-label="${side} simulation controls">
+        <button class="btn" type="button" data-side="${side}" data-side-action="start" ${running || disabled ? 'disabled' : ''}>Start</button>
+        <button class="btn secondary" type="button" data-side="${side}" data-side-action="pause" ${running ? '' : 'disabled'}>Pause</button>
+        <button class="btn secondary" type="button" data-side="${side}" data-side-action="step" ${disabled ? 'disabled' : ''}>Step</button>
+        <button class="btn secondary" type="button" data-side="${side}" data-side-action="reset">Reset</button>
+      </div>`;
     }
-
     function rebuild() {
-      stop();
-      index = -1;
-      phases = buildPhases();
-      renderParams();
-      draw();
-      ctx.log('Ready. ' + phases[0].text);
+      stopSender(); stopReceiver(); senderIndex = -1; receiverIndex = -1;
+      phases = buildPhases(); draw();
     }
-
-    function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
-
-    function advance() {
-      if (index >= phases.length - 1) { stop(); return; }
-      index += 1;
-      ctx.log(phases[index].text, phases[index].level);
-      draw();
+    function refreshReceiver() { stopReceiver(); receiverIndex = -1; phases = buildPhases(); draw(); }
+    function stopSender() { if (senderTimer) { NetSim.SimTiming.clearInterval(senderTimer); senderTimer = null; } }
+    function stopReceiver() { if (receiverTimer) { NetSim.SimTiming.clearInterval(receiverTimer); receiverTimer = null; } }
+    function advanceSender() {
+      if (senderIndex < phases.sender.length - 1) { senderIndex += 1; if (senderIndex >= phases.sender.length - 1) stopSender(); draw(); }
+      else stopSender();
+    }
+    function advanceReceiver() {
+      if (senderIndex < phases.sender.length - 1 && !receiverInput) return;
+      if (receiverIndex < phases.receiver.length - 1) { receiverIndex += 1; if (receiverIndex >= phases.receiver.length - 1) stopReceiver(); draw(); }
+      else stopReceiver();
+    }
+    function startSender() { if (!senderTimer && senderIndex < phases.sender.length - 1) senderTimer = NetSim.SimTiming.setInterval(advanceSender, 800); }
+    function startReceiver() {
+      if ((senderIndex >= phases.sender.length - 1 || receiverInput) && !receiverTimer && receiverIndex < phases.receiver.length - 1)
+        receiverTimer = NetSim.SimTiming.setInterval(advanceReceiver, 800);
+    }
+    function handleClick(event) {
+      const button = event.target.closest('[data-side-action]');
+      if (!button || !host.contains(button)) return;
+      const side = button.dataset.side;
+      const action = button.dataset.sideAction;
+      const start = side === 'sender' ? startSender : startReceiver;
+      const stop = side === 'sender' ? stopSender : stopReceiver;
+      const advanceSide = side === 'sender' ? advanceSender : advanceReceiver;
+      if (action === 'start') start();
+      if (action === 'pause') stop();
+      if (action === 'step') { stop(); advanceSide(); }
+      if (action === 'reset') {
+        stop();
+        if (side === 'sender') { stopReceiver(); senderIndex = -1; receiverIndex = -1; }
+        else receiverIndex = -1;
+        draw();
+      }
+    }
+    function handleInput(event) {
+      if (event.target.id === 'hamData') {
+        const value = event.target.value.trim();
+        if (!/^[01]{4}$/.test(value)) { event.target.setCustomValidity('Enter exactly four binary digits.'); event.target.reportValidity(); return; }
+        dataBits = value.split('').map(Number); receiverInput = ''; rebuild();
+      } else if (event.target.id === 'hamReceiver') {
+        const value = event.target.value.trim();
+        if (value && !/^[01]{7}$/.test(value)) { event.target.setCustomValidity('Enter exactly seven binary digits.'); event.target.reportValidity(); return; }
+        receiverInput = value; refreshReceiver();
+      } else if (event.target.id === 'hamErr') {
+        introduceError = event.target.checked; refreshReceiver();
+      }
     }
 
     return {
@@ -162,13 +193,15 @@
         ctx.canvas.classList.add('net-canvas');
         ctx.canvas.innerHTML = '<div class="hamming-mount"></div>';
         host = ctx.canvas.querySelector('.hamming-mount');
+        host.addEventListener('click', handleClick);
+        host.addEventListener('change', handleInput);
         rebuild();
       },
-      start() { if (timer) return; timer = NetSim.SimTiming.setInterval(() => { if (index >= phases.length - 1) { stop(); return; } advance(); }, 800); },
-      pause() { stop(); },
-      step() { stop(); advance(); },
+      start: startSender,
+      pause() { stopSender(); stopReceiver(); },
+      step() { stopSender(); advanceSender(); },
       reset() { rebuild(); },
-      destroy() { stop(); }
+      destroy() { stopSender(); stopReceiver(); }
     };
   });
 

@@ -8,12 +8,6 @@
 (function (NetSim) {
   'use strict';
 
-  const GENERATORS = {
-    g4: { bits: '10011', label: 'CRC-4 (10011, x\u2074+x+1)' },
-    g3: { bits: '1101', label: 'Degree-3 (1101, x\u00b3+x\u00b2+1)' },
-    g5: { bits: '110101', label: 'Degree-5 (110101)' }
-  };
-
   /** Real XOR polynomial division. Returns { trace, remainder } where
    *  trace is one entry per position showing whether an XOR happened. */
   function divide(bitsStr, genStr) {
@@ -41,19 +35,19 @@
 
   NetSim.SimRegistry.register('crc', function factory(ctx) {
     let message = '1101011011';
-    let genKey = 'g4';
     let customGenBits = '10011';
+    let receiverInput = '';
     let introduceError = false;
-    let phases = [];
-    let index = -1;
-    let timer = null;
+    let phases = { sender: [], receiver: [] };
+    let senderIndex = -1;
+    let receiverIndex = -1;
+    let senderTimer = null;
+    let receiverTimer = null;
     let host = null;
     let result = null;
 
     function currentGenerator() {
-      return genKey === 'custom'
-        ? { bits: customGenBits, label: 'Custom (' + customGenBits + ')' }
-        : GENERATORS[genKey];
+      return { bits: customGenBits, label: 'Custom (' + customGenBits + ')' };
     }
 
     function buildResult() {
@@ -65,42 +59,49 @@
 
       let received = codeword;
       let errorPos = -1;
-      if (introduceError) {
+      if (introduceError && !receiverInput) {
         errorPos = Math.floor(Math.random() * codeword.length);
         received = flipBit(codeword, errorPos);
+      }
+      if (receiverInput) {
+        received = receiverInput;
+        errorPos = -1;
+        for (let i = 0; i < Math.min(codeword.length, received.length); i++) {
+          if (codeword[i] !== received[i]) { errorPos = i; break; }
+        }
       }
       const check = divide(received, gen);
       const noErrorDetected = /^0+$/.test(check.remainder);
 
-      return { gen, r, augmented, enc, codeword, received, errorPos, check, noErrorDetected };
+      return { gen, r, augmented, enc, codeword, received, errorPos, receiverManual: Boolean(receiverInput), check, noErrorDetected };
     }
 
     function buildPhases() {
       result = buildResult();
-      const p = [];
-      p.push({ text: 'Message: ' + message + ' \u00b7 Generator: ' + currentGenerator().label, view: 'intro' });
-      p.push({ text: 'Append ' + result.r + ' zero bit(s): ' + result.augmented, view: 'augmented' });
+      const sender = [];
+      sender.push({ text: 'Append ' + result.r + ' zero bit(s): ' + result.augmented, view: 'augmented' });
       result.enc.trace.forEach((t, i) => {
-        p.push({
+        sender.push({
           text: 'Position ' + t.pos + ': leading bit is ' + t.before[0] + (t.xored ? ' \u2192 XOR with generator' : ' \u2192 no XOR (bring down next bit)'),
           view: 'divide-encode', trace: t, step: i + 1, total: result.enc.trace.length
         });
       });
-      p.push({ text: 'Remainder (CRC) = ' + result.enc.remainder, view: 'remainder' });
-      p.push({ text: 'Transmitted codeword = ' + message + ' + ' + result.enc.remainder + ' = ' + result.codeword, view: 'codeword' });
-      if (introduceError) {
-        p.push({ text: 'Introducing a transmission error: bit ' + result.errorPos + ' flipped \u2192 received: ' + result.received, view: 'error', level: 'warning' });
+      sender.push({ text: 'Remainder (CRC) = ' + result.enc.remainder, view: 'remainder' });
+      sender.push({ text: 'Transmitted codeword = ' + message + ' + ' + result.enc.remainder + ' = ' + result.codeword, view: 'codeword' });
+      const receiver = [];
+      if (introduceError && !result.receiverManual) {
+        receiver.push({ text: 'Received bits: ' + result.received, view: 'error', level: 'warning' });
       } else {
-        p.push({ text: 'No transmission error introduced \u2014 received codeword is identical: ' + result.received, view: 'error' });
+        receiver.push({ text: 'Received bits: ' + result.received, view: 'error' });
       }
-      p.push({ text: 'Receiver divides the received codeword by the same generator...', view: 'check-intro' });
-      p.push({
+      receiver.push({ text: 'Receiver divides the received codeword by the same generator...', view: 'check-intro' });
+      receiver.push({
         text: result.noErrorDetected
           ? 'Remainder = ' + result.check.remainder + ' (all zero) \u2192 No error detected \u2713'
           : 'Remainder = ' + result.check.remainder + ' (nonzero) \u2192 Error detected \u2717',
         view: 'final', level: result.noErrorDetected ? 'success' : 'error'
       });
-      return p;
+      return { sender, receiver };
     }
 
     function bitGridHTML(str, highlightStart, highlightLen) {
@@ -110,120 +111,140 @@
       }).join('');
     }
 
-    function draw() {
-      const phase = phases[Math.max(0, index)];
-      let body = '';
-      if (!phase || phase.view === 'intro') {
-        body = `<p class="net-hint">Press Start or Step to begin the division.</p>`;
-      } else if (phase.view === 'augmented') {
-        body = `<div class="bitgrid">${bitGridHTML(result.augmented)}</div>`;
-      } else if (phase.view === 'divide-encode') {
-        body = `
-          <div class="bitgrid">${bitGridHTML(phase.trace.snapshot, phase.trace.pos, result.gen.length)}</div>
-          <p class="net-hint">Step ${phase.step} / ${phase.total} \u2014 window at position ${phase.trace.pos}: ${phase.trace.before} ${phase.trace.xored ? '\u2295 ' + result.gen + ' = ' + phase.trace.after : '(unchanged)'}</p>
-        `;
-      } else if (phase.view === 'remainder' || phase.view === 'codeword') {
-        body = `<div class="bitgrid">${bitGridHTML(result.codeword, message.length, result.enc.remainder.length)}</div>
-          <p class="net-hint">Data bits (plain) + CRC remainder (highlighted)</p>`;
-      } else if (phase.view === 'error') {
-        body = `<div class="bitgrid">${bitGridHTML(result.received, result.errorPos >= 0 ? result.errorPos : null, 1)}</div>`;
-      } else {
-        body = `<div class="bitgrid">${bitGridHTML(result.check.remainder)}</div>
-          <p class="net-hint">Final remainder after dividing the received codeword</p>`;
-      }
-      const senderDone = ['remainder', 'codeword', 'error', 'check-intro', 'final'].includes(phase && phase.view);
-      const receiverStarted = ['error', 'check-intro', 'final'].includes(phase && phase.view);
-      const senderStatus = senderDone
-        ? `Codeword ready: <code>${result.codeword}</code>`
-        : `Data <code>${message}</code> · generator <code>${result.gen}</code><br>Remainder calculation is in progress.`;
-      const receiverStatus = !receiverStarted
-        ? 'Waiting for the sender to transmit the codeword.'
-        : `Received: <code>${result.received}</code><br>Remainder: <code>${result.check.remainder}</code> · ${result.noErrorDetected ? 'no error detected' : 'corruption detected'}`;
-      host.innerHTML = `<div class="crc-stage">${body}</div>
-        <div class="error-control-live">
-          <article><h3>Sender · encode</h3><p>${senderStatus}</p></article>
-          <div class="error-control-transfer" aria-hidden="true">→</div>
-          <article><h3>Receiver · check</h3><p>${receiverStatus}</p></article>
-        </div>`;
-
-      ctx.setMetrics([
-        { label: 'Generator', value: currentGenerator().label },
-        { label: 'CRC Length', value: (result.gen.length - 1) + ' bits' },
-        { label: 'Transmitted Codeword', value: result.codeword },
-        { label: 'Error Introduced', value: introduceError ? 'Bit ' + result.errorPos : 'No' },
-        { label: 'Result', value: index >= phases.length - 1 ? (result.noErrorDetected ? 'No error detected' : 'Error detected \u2717') : 'In progress' }
-      ]);
+    function ladderHTML(input, gen, trace, activePos) {
+      const prefix = ' '.repeat(gen.length + 4);
+      const shown = trace.slice(0, activePos + 1);
+      const quotient = trace.map((step, i) => i <= activePos ? (step.xored ? '1' : '0') : '·').join('');
+      const lines = [
+        prefix + (quotient || '·'.repeat(trace.length)),
+        gen + ' ) ' + input,
+        prefix + '-'.repeat(input.length)
+      ];
+      shown.forEach((step) => {
+        if (step.xored) {
+          const offset = prefix.length + step.pos;
+          lines.push(' '.repeat(offset) + gen);
+          lines.push(' '.repeat(offset) + '-'.repeat(gen.length));
+        }
+        lines.push(prefix + step.snapshot);
+      });
+      return `<div class="crc-ladder-wrap"><pre class="crc-ladder" aria-label="Binary polynomial long division">${lines.join('\n')}</pre></div>`;
     }
 
-    function renderParams() {
-      ctx.params.hidden = false;
-      ctx.params.innerHTML = `
-        <div class="switch-text-row">
-          <label for="crcMsg">Message bits</label>
-          <input type="text" id="crcMsg" maxlength="14" value="${message}">
-          <small>Enter up to 14 binary digits (0 or 1).</small>
-        </div>
-        <fieldset class="switch-mode-group" role="radiogroup" aria-label="Generator polynomial">
-          <legend class="section-label" style="margin:0 0 0.5rem;border:none;padding:0;">Generator</legend>
-          ${Object.keys(GENERATORS).map((k) => `
-            <label class="switch-mode-option ${k === genKey ? 'is-checked' : ''}">
-              <input type="radio" name="crcGen" value="${k}" ${k === genKey ? 'checked' : ''}>
-              ${GENERATORS[k].label}
-            </label>
-          `).join('')}
-          <label class="switch-mode-option ${genKey === 'custom' ? 'is-checked' : ''}">
-            <input type="radio" name="crcGen" value="custom" ${genKey === 'custom' ? 'checked' : ''}>
-            Custom generator polynomial
-          </label>
-        </fieldset>
-        <div class="switch-text-row">
-          <label for="crcCustomGen">Generator bits</label>
-          <input type="text" id="crcCustomGen" maxlength="9" value="${customGenBits}" inputmode="numeric" pattern="1[01]*1" aria-describedby="crcGenHelp">
-          <small id="crcGenHelp">Enter binary coefficients from highest to lowest power (for example, 10011). Start and end with 1; degree 1–8.</small>
-        </div>
-        <label class="switch-mode-option ${introduceError ? 'is-checked' : ''}" style="margin-top:0.5rem;">
-          <input type="checkbox" id="crcErr" ${introduceError ? 'checked' : ''}>
-          Introduce a transmission error
-        </label>
-      `;
-      ctx.params.querySelector('#crcMsg').addEventListener('change', (e) => {
-        message = (e.target.value.replace(/[^01]/g, '') || '1101011011').slice(0, 14);
-        rebuild();
-      });
-      ctx.params.querySelectorAll('input[name="crcGen"]').forEach((r) => {
-        r.addEventListener('change', () => { genKey = r.value; rebuild(); });
-      });
-      ctx.params.querySelector('#crcCustomGen').addEventListener('change', (e) => {
-        const value = e.target.value.trim();
-        if (!/^1[01]*1$/.test(value) || value.length > 9) {
-          e.target.setCustomValidity('Use 2–9 binary digits, with 1 at both ends.');
-          e.target.reportValidity();
-          return;
-        }
-        e.target.setCustomValidity('');
-        customGenBits = value;
-        genKey = 'custom';
-        rebuild();
-      });
-      ctx.params.querySelector('#crcErr').addEventListener('change', (e) => { introduceError = e.target.checked; rebuild(); });
+    function draw() {
+      const senderPhase = phases.sender[senderIndex];
+      const receiverPhase = phases.receiver[receiverIndex];
+      let senderBody = '<p class="net-hint">Enter sender data, then use the controls in this block.</p>';
+      if (senderPhase && senderPhase.view === 'augmented') {
+        senderBody = `<p class="net-hint">Long division setup · ${result.r} zero bits appended.</p>${ladderHTML(result.augmented, result.gen, result.enc.trace, -1)}`;
+      } else if (senderPhase && senderPhase.view === 'divide-encode') {
+        senderBody = `${ladderHTML(result.augmented, result.gen, result.enc.trace, senderPhase.step - 1)}<p class="net-hint">Step ${senderPhase.step} / ${senderPhase.total} · position ${senderPhase.trace.pos}: ${senderPhase.trace.xored ? 'XOR the aligned generator.' : 'Leading bit is 0; bring down the next bit.'}</p>`;
+      } else if (senderPhase && ['remainder', 'codeword'].includes(senderPhase.view)) {
+        senderBody = `<div class="bitgrid">${bitGridHTML(result.codeword, message.length, result.enc.remainder.length)}</div><p class="net-hint">Data bits and CRC remainder</p>`;
+      }
+      let receiverBody = '<p class="net-hint">Waiting for sender transmission. You may also enter a codeword to check independently.</p>';
+      if (receiverPhase && receiverPhase.view === 'error') {
+        receiverBody = `<div class="bitgrid">${bitGridHTML(result.received, result.errorPos >= 0 ? result.errorPos : null, 1)}</div><p class="net-hint">Received codeword</p>`;
+      } else if (receiverPhase && receiverPhase.view === 'check-intro') {
+        receiverBody = `<p class="net-hint">Receiver divides the entered codeword by the same generator.</p>${ladderHTML(result.received, result.gen, result.check.trace, -1)}`;
+      } else if (receiverPhase && receiverPhase.view === 'final') {
+        receiverBody = `${ladderHTML(result.received, result.gen, result.check.trace, result.check.trace.length - 1)}<p class="net-hint">Remainder ${result.check.remainder} · ${result.noErrorDetected ? 'no error detected' : 'error detected'}</p>`;
+      }
+      const senderComplete = senderIndex >= phases.sender.length - 1;
+      const receiverCanRun = senderComplete || Boolean(receiverInput);
+      host.innerHTML = `<div class="error-control-simulations">
+        <article class="error-control-simulation"><h3>Simulation Sender Side</h3>
+          <div class="error-control-inputs">
+            <div class="switch-text-row"><label for="crcMsg">Message bits</label><input type="text" id="crcMsg" maxlength="14" value="${message}" inputmode="numeric" pattern="[01]+"><small>Binary bits only.</small></div>
+            <div class="switch-text-row"><label for="crcCustomGen">Generator polynomial bits</label><input type="text" id="crcCustomGen" maxlength="9" value="${customGenBits}" inputmode="numeric" pattern="1[01]*1"><small>Binary coefficients, highest to lowest power; degree 1–8.</small></div>
+          </div>
+          ${controlButtons('sender', senderTimer, senderIndex >= phases.sender.length - 1)}
+          <div class="crc-stage">${senderBody}</div><p class="error-control-result">${senderComplete ? `Codeword sent: <code>${result.codeword}</code>` : `Sender input: <code>${message}</code> · generator <code>${result.gen}</code>`}</p>
+        </article>
+        <article class="error-control-simulation"><h3>Simulation Receiver Side</h3>
+          <div class="error-control-inputs"><div class="switch-text-row"><label for="crcReceiver">Received codeword</label><input type="text" id="crcReceiver" maxlength="32" value="${receiverInput || result.received}" inputmode="numeric" pattern="[01]*"><small>Enter bits to check; clear the field to use the sender output.</small></div>
+            <label class="switch-mode-option ${introduceError ? 'is-checked' : ''}"><input type="checkbox" id="crcErr" ${introduceError ? 'checked' : ''}>Inject a channel bit error automatically</label><small>Manual received bits take precedence over automatic error injection.</small>
+          </div>
+          ${controlButtons('receiver', receiverTimer, !receiverCanRun || receiverIndex >= phases.receiver.length - 1)}
+          <div class="crc-stage">${receiverBody}</div><p class="error-control-result">${receiverPhase && receiverPhase.view === 'final' ? `Remainder <code>${result.check.remainder}</code> · ${result.noErrorDetected ? 'no error detected' : 'error detected'}` : receiverCanRun ? 'Ready to check received bits.' : 'Run the sender to transmit a codeword, or enter receiver bits manually.'}</p>
+        </article>
+      </div>`;
+    }
+
+    function controlButtons(side, running, disabled) {
+      return `<div class="sim-controls error-control-buttons" role="group" aria-label="${side} simulation controls">
+        <button class="btn" type="button" data-side="${side}" data-side-action="start" ${running || disabled ? 'disabled' : ''}>Start</button>
+        <button class="btn secondary" type="button" data-side="${side}" data-side-action="pause" ${running ? '' : 'disabled'}>Pause</button>
+        <button class="btn secondary" type="button" data-side="${side}" data-side-action="step" ${disabled ? 'disabled' : ''}>Step</button>
+        <button class="btn secondary" type="button" data-side="${side}" data-side-action="reset">Reset</button>
+      </div>`;
     }
 
     function rebuild() {
-      stop();
-      index = -1;
+      stopSender(); stopReceiver();
+      senderIndex = -1; receiverIndex = -1;
       phases = buildPhases();
-      renderParams();
       draw();
-      ctx.log('Ready. ' + phases[0].text);
     }
 
-    function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
-
-    function advance() {
-      if (index >= phases.length - 1) { stop(); return; }
-      index += 1;
-      ctx.log(phases[index].text, phases[index].level);
+    function refreshReceiver() {
+      stopReceiver(); receiverIndex = -1;
+      phases = buildPhases();
       draw();
+    }
+
+    function stopSender() { if (senderTimer) { NetSim.SimTiming.clearInterval(senderTimer); senderTimer = null; } }
+    function stopReceiver() { if (receiverTimer) { NetSim.SimTiming.clearInterval(receiverTimer); receiverTimer = null; } }
+    function advanceSender() {
+      if (senderIndex < phases.sender.length - 1) { senderIndex += 1; if (senderIndex >= phases.sender.length - 1) stopSender(); draw(); }
+      else stopSender();
+    }
+    function advanceReceiver() {
+      if (senderIndex < phases.sender.length - 1 && !receiverInput) return;
+      if (receiverIndex < phases.receiver.length - 1) { receiverIndex += 1; if (receiverIndex >= phases.receiver.length - 1) stopReceiver(); draw(); }
+      else stopReceiver();
+    }
+    function handleClick(event) {
+      const button = event.target.closest('[data-side-action]');
+      if (!button || !host.contains(button)) return;
+      const side = button.dataset.side;
+      const action = button.dataset.sideAction;
+      const start = side === 'sender' ? startSender : startReceiver;
+      const stop = side === 'sender' ? stopSender : stopReceiver;
+      const advance = side === 'sender' ? advanceSender : advanceReceiver;
+      if (action === 'start') start();
+      if (action === 'pause') stop();
+      if (action === 'step') { stop(); advance(); }
+      if (action === 'reset') {
+        stop();
+        if (side === 'sender') { stopReceiver(); senderIndex = -1; receiverIndex = -1; }
+        else receiverIndex = -1;
+        draw();
+      }
+    }
+    function handleInput(event) {
+      if (event.target.id === 'crcMsg') {
+        const value = event.target.value.trim();
+        if (!/^[01]{1,14}$/.test(value)) { event.target.setCustomValidity('Enter 1–14 binary digits.'); event.target.reportValidity(); return; }
+        message = value; receiverInput = ''; rebuild();
+      } else if (event.target.id === 'crcCustomGen') {
+        const value = event.target.value.trim();
+        if (!/^1[01]*1$/.test(value) || value.length > 9) { event.target.setCustomValidity('Use 2–9 binary digits, with 1 at both ends.'); event.target.reportValidity(); return; }
+        customGenBits = value;
+        if (receiverInput && receiverInput.length < value.length) receiverInput = '';
+        rebuild();
+      } else if (event.target.id === 'crcReceiver') {
+        const value = event.target.value.trim();
+        if (value && (!/^[01]+$/.test(value) || value.length < result.gen.length || value.length > 32)) { event.target.setCustomValidity('Enter binary bits at least as long as the generator (maximum 32).'); event.target.reportValidity(); return; }
+        receiverInput = value; refreshReceiver();
+      } else if (event.target.id === 'crcErr') {
+        introduceError = event.target.checked; refreshReceiver();
+      }
+    }
+    function startSender() { if (!senderTimer && senderIndex < phases.sender.length - 1) senderTimer = NetSim.SimTiming.setInterval(advanceSender, 700); }
+    function startReceiver() {
+      if ((senderIndex >= phases.sender.length - 1 || receiverInput) && !receiverTimer && receiverIndex < phases.receiver.length - 1)
+        receiverTimer = NetSim.SimTiming.setInterval(advanceReceiver, 700);
     }
 
     return {
@@ -231,13 +252,15 @@
         ctx.canvas.classList.add('net-canvas');
         ctx.canvas.innerHTML = '<div class="crc-mount"></div>';
         host = ctx.canvas.querySelector('.crc-mount');
+        host.addEventListener('click', handleClick);
+        host.addEventListener('change', handleInput);
         rebuild();
       },
-      start() { if (timer) return; timer = NetSim.SimTiming.setInterval(() => { if (index >= phases.length - 1) { stop(); return; } advance(); }, 700); },
-      pause() { stop(); },
-      step() { stop(); advance(); },
+      start: startSender,
+      pause() { stopSender(); stopReceiver(); },
+      step() { stopSender(); advanceSender(); },
       reset() { rebuild(); },
-      destroy() { stop(); }
+      destroy() { stopSender(); stopReceiver(); }
     };
   });
 
