@@ -67,7 +67,7 @@
       ctx.log('Ready \u2014 5 independent packets about to travel from A to B.');
     }
 
-    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
 
     function advance() {
       if (index >= steps.length - 1) { stop(); return; }
@@ -83,7 +83,7 @@
         network = NetSim.Components.NetworkCanvas.mount(ctx.canvas.querySelector('.net-mount'), {});
         rebuild();
       },
-      start() { if (timer) return; timer = setInterval(() => { if (index >= steps.length - 1) { stop(); return; } advance(); }, 500); },
+      start() { if (timer) return; timer = NetSim.SimTiming.setInterval(() => { if (index >= steps.length - 1) { stop(); return; } advance(); }, 500); },
       pause() { stop(); },
       step() { stop(); advance(); },
       reset() { rebuild(); },

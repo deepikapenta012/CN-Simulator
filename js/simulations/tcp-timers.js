@@ -70,7 +70,7 @@
       ctx.log('Ready \u2014 about to observe RTT samples and compute the retransmission timeout.');
     }
 
-    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
 
     function advance() {
       if (index >= phases.length - 1) { stop(); return; }
@@ -86,7 +86,7 @@
         host = ctx.canvas.querySelector('.timers-mount');
         rebuild();
       },
-      start() { if (timer) return; timer = setInterval(() => { if (index >= phases.length - 1) { stop(); return; } advance(); }, 700); },
+      start() { if (timer) return; timer = NetSim.SimTiming.setInterval(() => { if (index >= phases.length - 1) { stop(); return; } advance(); }, 700); },
       pause() { stop(); },
       step() { stop(); advance(); },
       reset() { rebuild(); },

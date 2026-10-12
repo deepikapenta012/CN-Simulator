@@ -30,9 +30,13 @@
     }
 
     function draw() {
-      const encodedSegments = segmentsForBits();
-      const points = NetSim.Core.Waveform.stepWaveform(bits.length, W, H, 0.38,
-        (i) => encodedSegments[i]);
+      const revealedCount = Math.max(0, index + 1);
+      const encodedSegments = segmentsForBits().slice(0, revealedCount);
+      const revealedWidth = (revealedCount / bits.length) * W;
+      const points = revealedCount
+        ? NetSim.Core.Waveform.stepWaveform(revealedCount, revealedWidth, H, 0.38,
+          (i) => encodedSegments[i])
+        : '';
       host.innerHTML = `
         <svg class="net-svg wave-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${title} waveform">
           <line class="wave-axis" x1="0" y1="${H / 2}" x2="${W}" y2="${H / 2}"></line>
@@ -46,12 +50,12 @@
         { label: 'Bit Rate', value: bitRate + ' bps' },
         { label: 'Baud Rate', value: rz ? (bitRate * 2) + ' baud (up to 2 elements/bit)' : bitRate + ' baud' },
         { label: 'Signal Levels', value: unipolar ? '+V and 0 V' : rz ? '+V, 0 V, -V' : '+V and -V' },
-        { label: 'Bits Scanned', value: Math.max(index + 1, 0) + ' / ' + bits.length }
+        { label: 'Bits Drawn', value: revealedCount + ' / ' + bits.length }
       ]);
     }
 
     function stop() {
-      if (timer) { clearInterval(timer); timer = null; }
+      if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; }
     }
 
     function advance() {
@@ -112,7 +116,7 @@
       },
       start() {
         if (timer) return;
-        timer = setInterval(() => {
+        timer = NetSim.SimTiming.setInterval(() => {
           if (index >= bits.length - 1) { stop(); return; }
           advance();
         }, Math.max(150, 1000 / bitRate));

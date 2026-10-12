@@ -103,7 +103,7 @@
       ctx.log('New run generated \u2014 ' + totalSlots + ' slots, ' + stationCount + ' stations.');
     }
 
-    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
 
     function advance() {
       if (index >= totalSlots - 1) { stop(); return; }
@@ -124,7 +124,7 @@
         host = ctx.canvas.querySelector('.aloha-mount');
         rebuild();
       },
-      start() { if (timer) return; timer = setInterval(() => { if (index >= totalSlots - 1) { stop(); return; } advance(); }, 400); },
+      start() { if (timer) return; timer = NetSim.SimTiming.setInterval(() => { if (index >= totalSlots - 1) { stop(); return; } advance(); }, 400); },
       pause() { stop(); },
       step() { stop(); advance(); },
       reset() { rebuild(); },

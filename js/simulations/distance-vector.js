@@ -210,7 +210,7 @@
       ctx.log('Ready \u2014 5 routers (A\u2013B\u2013C\u2013D\u2013E) about to exchange distance vectors.');
     }
 
-    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
 
     function advance() {
       if (index >= rounds.length - 1) { stop(); return; }
@@ -226,7 +226,7 @@
         host = ctx.canvas.querySelector('.dv-mount');
         rebuild();
       },
-      start() { if (timer) return; timer = setInterval(() => { if (index >= rounds.length - 1) { stop(); return; } advance(); }, 700); },
+      start() { if (timer) return; timer = NetSim.SimTiming.setInterval(() => { if (index >= rounds.length - 1) { stop(); return; } advance(); }, 700); },
       pause() { stop(); },
       step() { stop(); advance(); },
       reset() { rebuild(); },

@@ -72,7 +72,7 @@
       ctx.log('Ready \u2014 sender about to transmit while the application reads slowly at first.');
     }
 
-    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
 
     function advance() {
       if (index >= rounds.length - 1) { stop(); return; }
@@ -88,7 +88,7 @@
         host = ctx.canvas.querySelector('.tcpwin-mount');
         rebuild();
       },
-      start() { if (timer) return; timer = setInterval(() => { if (index >= rounds.length - 1) { stop(); return; } advance(); }, 600); },
+      start() { if (timer) return; timer = NetSim.SimTiming.setInterval(() => { if (index >= rounds.length - 1) { stop(); return; } advance(); }, 600); },
       pause() { stop(); },
       step() { stop(); advance(); },
       reset() { rebuild(); },

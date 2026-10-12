@@ -99,7 +99,7 @@
       ctx.log('Ready \u2014 window of ' + windowSize + ' frames, frame ' + Math.min(lostFrame, windowSize) + ' will be lost.');
     }
 
-    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
 
     function advance() {
       if (index >= events.length - 1) { stop(); return; }
@@ -115,7 +115,7 @@
         host = ctx.canvas.querySelector('.gbn-mount');
         rebuild();
       },
-      start() { if (timer) return; timer = setInterval(() => { if (index >= events.length - 1) { stop(); return; } advance(); }, 550); },
+      start() { if (timer) return; timer = NetSim.SimTiming.setInterval(() => { if (index >= events.length - 1) { stop(); return; } advance(); }, 550); },
       pause() { stop(); },
       step() { stop(); advance(); },
       reset() { rebuild(); },

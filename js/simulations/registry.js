@@ -21,6 +21,7 @@
   'use strict';
 
   const registry = new Map();
+  const staticContent = new Map();
 
   function register(id, factory) {
     registry.set(id, factory);
@@ -34,6 +35,19 @@
     const factory = registry.get(id);
     if (!factory) return null;
     return factory(mountCtx);
+  }
+
+  function registerStaticContent(id, renderContent) {
+    staticContent.set(id, renderContent);
+  }
+
+  function hasStaticContent(id) {
+    return staticContent.has(id);
+  }
+
+  function getStaticContent(id) {
+    const renderer = staticContent.get(id);
+    return renderer ? renderer() : '';
   }
 
   /**
@@ -70,6 +84,6 @@
     });
   }
 
-  NetSim.SimRegistry = { register, has, create, registerScaffold };
+  NetSim.SimRegistry = { register, has, create, registerScaffold, registerStaticContent, hasStaticContent, getStaticContent };
 
 })(window.NetSim = window.NetSim || {});

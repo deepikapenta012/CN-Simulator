@@ -29,12 +29,16 @@
 
     function draw() {
       const revealedCount = index >= 0 ? index + 1 : 0;
-      const nrzPoints = NetSim.Core.Waveform.stepWaveform(bits.length, W, H / 2 - 10, 0.35, (i) => (
-        [{ frac: 0, value: bits[i] === '1' ? 1 : -1 }]
-      ));
+      const revealedWidth = (revealedCount / bits.length) * W;
+      const nrzBits = bits.slice(0, revealedCount);
+      const nrzPoints = revealedCount
+        ? NetSim.Core.Waveform.stepWaveform(revealedCount, revealedWidth, H / 2 - 10, 0.35, (i) => (
+          [{ frac: 0, value: nrzBits[i] === '1' ? 1 : -1 }]
+        ))
+        : '';
       const manchesterBits = bits.slice(0, revealedCount);
       const manchesterPoints = manchesterBits.length
-        ? NetSim.Core.Waveform.stepWaveform(manchesterBits.length, (manchesterBits.length / bits.length) * W, H / 2 - 10, 0.35, manchesterSegments)
+        ? NetSim.Core.Waveform.stepWaveform(manchesterBits.length, revealedWidth, H / 2 - 10, 0.35, manchesterSegments)
         : '';
 
       host.innerHTML = `
@@ -90,7 +94,7 @@
       });
     }
 
-    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
 
     function advance() {
       if (index >= bits.length - 1) { stop(); return; }
@@ -117,7 +121,7 @@
       },
       start() {
         if (timer) return;
-        timer = setInterval(() => { if (index >= bits.length - 1) { stop(); return; } advance(); }, Math.max(200, 1000 / bitRate));
+        timer = NetSim.SimTiming.setInterval(() => { if (index >= bits.length - 1) { stop(); return; } advance(); }, Math.max(200, 1000 / bitRate));
       },
       pause() { stop(); },
       step() { stop(); advance(); },

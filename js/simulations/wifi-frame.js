@@ -220,7 +220,7 @@
       ctx.log('Ready to build an 802.11 data frame field by field.');
     }
 
-    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
 
     function advance() {
       if (index >= phases.length - 1) { stop(); return; }
@@ -236,7 +236,7 @@
         host = ctx.canvas.querySelector('.wifi-mount');
         rebuild();
       },
-      start() { if (timer) return; timer = setInterval(() => { if (index >= phases.length - 1) { stop(); return; } advance(); }, 750); },
+      start() { if (timer) return; timer = NetSim.SimTiming.setInterval(() => { if (index >= phases.length - 1) { stop(); return; } advance(); }, 750); },
       pause() { stop(); },
       step() { stop(); advance(); },
       reset() { rebuild(); },

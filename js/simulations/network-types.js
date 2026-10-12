@@ -95,7 +95,7 @@
       });
     }
 
-    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
 
     function advance() {
       if (index >= SCALES.length - 1) { stop(); return; }
@@ -115,7 +115,7 @@
       },
       start() {
         if (timer) return;
-        timer = setInterval(() => { if (index >= SCALES.length - 1) { stop(); return; } advance(); }, 1400);
+        timer = NetSim.SimTiming.setInterval(() => { if (index >= SCALES.length - 1) { stop(); return; } advance(); }, 1400);
       },
       pause() { stop(); },
       step() { stop(); advance(); },

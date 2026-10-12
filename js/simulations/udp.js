@@ -79,7 +79,7 @@
       ctx.log('Ready \u2014 about to send ' + count + ' UDP datagrams with no connection setup.');
     }
 
-    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
 
     function advance() {
       if (index >= events.length - 1) { stop(); return; }
@@ -95,7 +95,7 @@
         host = ctx.canvas.querySelector('.udp-mount');
         rebuild();
       },
-      start() { if (timer) return; timer = setInterval(() => { if (index >= events.length - 1) { stop(); return; } advance(); }, 500); },
+      start() { if (timer) return; timer = NetSim.SimTiming.setInterval(() => { if (index >= events.length - 1) { stop(); return; } advance(); }, 500); },
       pause() { stop(); },
       step() { stop(); advance(); },
       reset() { rebuild(); },

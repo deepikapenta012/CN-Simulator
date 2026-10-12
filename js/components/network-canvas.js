@@ -85,7 +85,8 @@
         if (!node) return;
         let marker = entitiesLayer.querySelector('[data-entity-id="' + entity.id + '"]');
         const stackOffset = (i % 3) * 10 - 10;
-        const duration = Math.max(0.15, 0.6 / (params.animationSpeed || 1));
+        const playbackSpeed = (NetSim.SimTiming && NetSim.SimTiming.getSpeed()) || 1;
+        const duration = Math.max(0.08, 0.6 / ((params.animationSpeed || 1) * playbackSpeed));
 
         if (!marker) {
           marker = document.createElementNS('http://www.w3.org/2000/svg', 'g');

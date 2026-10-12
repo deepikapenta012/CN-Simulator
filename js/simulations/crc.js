@@ -175,7 +175,7 @@
       ctx.log('Ready. ' + phases[0].text);
     }
 
-    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
 
     function advance() {
       if (index >= phases.length - 1) { stop(); return; }
@@ -191,7 +191,7 @@
         host = ctx.canvas.querySelector('.crc-mount');
         rebuild();
       },
-      start() { if (timer) return; timer = setInterval(() => { if (index >= phases.length - 1) { stop(); return; } advance(); }, 700); },
+      start() { if (timer) return; timer = NetSim.SimTiming.setInterval(() => { if (index >= phases.length - 1) { stop(); return; } advance(); }, 700); },
       pause() { stop(); },
       step() { stop(); advance(); },
       reset() { rebuild(); },

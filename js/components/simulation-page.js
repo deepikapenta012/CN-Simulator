@@ -22,6 +22,11 @@
     'digital-signals': ['Represents bits using discrete signal levels or transitions on a link.', 'Digital receivers can decide bit values and use regeneration and error checks.', 'Works naturally with computing and can be regenerated along a path.', 'Noise, timing, and bandwidth still limit rates. Line coding, equalization, and error correction help.'],
     'transmission-media': ['Compares copper, fiber, and wireless as paths that carry signals.', 'Media choice affects capacity, distance, cost, mobility, and interference.', 'Each medium can be matched to its use: fiber for long high-capacity links, radio for mobility, copper for accessible wiring.', 'There is no universal best medium. Compare distance, environment, capacity, and installation cost.'],
     impairments: ['Models attenuation, noise, and distortion changing a signal during transmission.', 'Link designers use these effects to estimate range and error risk.', 'Makes causes of degraded signal quality visible.', 'Real channels vary more than a simple model. Measurements, shielding, repeaters, and error correction address specific impairments.'],
+    attenuation: ['Attenuation is the reduction in signal strength as energy is lost through a transmission medium.', 'It determines how far a signal can travel before it needs amplification, regeneration, or a different medium.', 'Quantifying loss helps engineers plan link budgets and repeater spacing.', 'Loss varies with frequency, distance, connectors, and medium. Use link-budget measurements and add repeaters or choose lower-loss media for longer paths.'],
+    noise: ['Noise is unwanted energy added to a signal, making the transmitted information harder to distinguish.', 'Signal-to-noise ratio helps estimate channel quality and the reliable data rate.', 'Noise analysis helps set modulation, coding, and receiver requirements.', 'Noise cannot always be removed and this random model is simplified. Shielding, filtering, stronger error-correction codes, or more signal power can improve reception.'],
+    distortion: ['Distortion changes a signal’s shape when its frequency components experience different gain or delay.', 'It can cause symbols to overlap and become harder for a receiver to decode.', 'Understanding waveform changes guides equalizer and channel design.', 'Severe distortion causes inter-symbol interference. Equalization, shorter links, or a better-controlled channel can reduce it.'],
+    'nyquist-capacity': ['The Nyquist formula estimates the maximum bit rate of a band-limited noiseless channel: C = 2B log₂(M), where B is bandwidth and M is the number of signal levels.', 'It relates bandwidth and signaling levels to a theoretical bit-rate limit when noise is ignored.', 'It helps compare modulation choices and bandwidth requirements.', 'It assumes a noiseless channel and ideal signaling. Real channels also have noise, so use Shannon capacity to account for SNR and leave implementation margin.'],
+    'shannon-capacity': ['The Shannon formula estimates the maximum reliable data rate of a noisy channel: C = B log₂(1 + SNR), using linear SNR.', 'It shows how bandwidth and signal quality jointly limit reliable communication.', 'It gives a fundamental capacity limit for noisy channels.', 'It assumes an ideal coding scheme and does not include overhead or implementation limits. Use the result as a theoretical ceiling, not an expected throughput.'],
     manchester: ['Each bit has a mid-bit transition, which also provides timing information.', 'The receiver can recover synchronization from the signal itself.', 'Self-clocking and predictable transitions.', 'Uses more bandwidth than many alternatives. Modern links use more efficient coding and clock recovery.'],
     udp: ['Sends independent datagrams without a connection handshake or delivery guarantee.', 'Useful when low setup delay matters or the application handles reliability itself.', 'Small overhead and low-latency delivery.', 'Packets can be lost, duplicated, or reordered. Add application recovery or use TCP/QUIC for reliable streams.'],
     tcp: ['Shows TCP connection setup and close using handshake messages.', 'The handshake synchronizes state before reliable data transfer.', 'Reliable, ordered byte-stream delivery.', 'Setup adds latency and streams lack message boundaries. QUIC can reduce setup delay and provide streams.'],
@@ -32,6 +37,7 @@
     bgp: ['Compares advertised prefixes and path attributes to choose routes between autonomous systems.', 'Applies routing policy at Internet scale between independent networks.', 'Scales globally and supports policy-based choices.', 'Policy errors can have wide effects. Route filtering, RPKI validation, and review reduce risk.'],
     ipv4: ['Uses 32-bit addresses and prefixes to identify interfaces and route packets.', 'Provides addressing for delivery across interconnected networks.', 'Mature and widely supported.', 'Address supply is limited and often relies on NAT. IPv6 provides a much larger address space.'],
     ipv6: ['Uses 128-bit addresses and prefixes to identify interfaces and route packets.', 'Supports growth beyond IPv4 address availability.', 'Vast address space and modern protocol design.', 'Transition adds operational complexity. Planned dual-stack migration supports interoperability.'],
+    'transmission-media': ['Transmission media carry signals between network devices. Guided media constrain signals to copper or fiber; unguided media use wireless electromagnetic waves.', 'The medium affects achievable capacity, reach, installation cost, mobility, and susceptibility to interference.', 'Fiber offers high capacity and long reach, copper is practical and economical for many LANs, and wireless supports mobility or hard-to-cable locations.', 'Every medium has trade-offs and actual performance depends on equipment and environment. Compare capacity, distance, interference, cost, and deployment needs before choosing.'],
     unipolar: ['Unipolar NRZ maps 1 to a positive voltage and 0 to zero voltage, holding each level for one bit period.', 'It provides a simple way to represent a bit stream as electrical signal levels.', 'Simple encoding and decoding with only one non-zero polarity.', 'Long runs of zeros provide no timing transitions and the signal can have a DC component. Polar or Manchester coding improves synchronization and DC balance.'],
     polar: ['Polar NRZ-L maps 1 and 0 to opposite voltage polarities and holds each level for one bit period.', 'It provides a two-level physical representation of digital data.', 'Uses both voltage polarities and is simple to implement.', 'Long runs can still lack transitions for clock recovery. Manchester or clocked/scrambled line codes provide more timing information.'],
     'polar-nrzi': ['Polar NRZ-I represents a 1 with a transition at the start of its bit interval and a 0 with no transition.', 'Differential encoding can make meaning depend on a change in signal level rather than its absolute polarity.', 'A polarity reversal communicates a 1 and can be less sensitive to polarity inversion.', 'Long runs of zeros contain no transitions and can challenge clock recovery. Scrambling or a transition-rich code such as Manchester can help.'],
@@ -62,6 +68,7 @@
     }
 
     const notes = learningNotes(sim, layer);
+    const staticContent = NetSim.SimRegistry.hasStaticContent(sim.id);
     container.innerHTML = `
       <div class="sim-page-head">
         <div class="layer-eyebrow"><a href="#/layer/${layer.id}">← ${layer.name} layer</a></div>
@@ -76,7 +83,13 @@
         <p>${notes[1]}</p>
       </section>
 
-      <h2 class="section-label">Simulation</h2>
+      ${staticContent
+        ? `<section class="sim-static-content"><h2 class="section-label">Transmission Media Types</h2>${NetSim.SimRegistry.getStaticContent(sim.id)}</section>`
+        : `<section class="sim-interactive" id="simulationWorkspace">
+      <div class="sim-workspace-head">
+        <h2 class="section-label">Simulation</h2>
+        <button type="button" class="btn secondary sim-fullscreen-toggle" id="simFullscreen" aria-pressed="false">Full screen</button>
+      </div>
       <div class="sim-layout">
         <div>
           <div class="sim-canvas" id="simCanvas"></div>
@@ -88,29 +101,65 @@
           ${NetSim.Components.metricsHTML([])}
         </div>
       </div>
+      </section>`}
 
-      <div class="sim-how">
+      ${staticContent ? '' : `<div class="sim-how">
         <h2 class="section-label">How it works</h2>
         <p>${sim.desc} This page follows NetSim's common simulation template — the
         same Start, Pause, Step and Reset controls, event log and metrics panel are
         used across every simulation so the interaction pattern stays consistent
         as new simulations are added.</p>
-      </div>
-      <div class="sim-learning-details">
+      </div>`}
+      ${staticContent ? '' : `<div class="sim-learning-details">
         <section class="sim-how">
           <h2 class="section-label">Advantages</h2>
-          <p>${notes[2]}</p>
+          <ul class="sim-learning-points"><li>${notes[2]}</li></ul>
         </section>
         <section class="sim-how">
           <h2 class="section-label">Disadvantages and solutions or alternatives</h2>
-          <p>${notes[3]}</p>
+          <ul class="sim-learning-points"><li>${notes[3]}</li></ul>
         </section>
-      </div>
+      </div>`}
     `;
+
+    if (staticContent) {
+      container._simDestroy = () => {};
+      return;
+    }
 
     const canvas = container.querySelector('#simCanvas');
     const paramsEl = container.querySelector('#simParams');
+    const workspace = container.querySelector('#simulationWorkspace');
+    const fullscreenButton = container.querySelector('#simFullscreen');
     const log = NetSim.Components.createLogger(container);
+
+    function syncFullscreenButton() {
+      const active = document.fullscreenElement === workspace || workspace.classList.contains('is-expanded');
+      fullscreenButton.textContent = active ? 'Exit full screen' : 'Full screen';
+      fullscreenButton.setAttribute('aria-pressed', String(active));
+    }
+
+    function onFullscreenChange() {
+      workspace.classList.toggle('is-expanded', document.fullscreenElement !== workspace && workspace.classList.contains('is-expanded'));
+      syncFullscreenButton();
+    }
+
+    fullscreenButton.addEventListener('click', async () => {
+      try {
+        if (document.fullscreenElement === workspace || workspace.classList.contains('is-expanded')) {
+          if (document.fullscreenElement === workspace && document.exitFullscreen) await document.exitFullscreen();
+          workspace.classList.remove('is-expanded');
+        } else if (workspace.requestFullscreen) {
+          await workspace.requestFullscreen();
+        } else {
+          workspace.classList.add('is-expanded');
+        }
+      } catch (error) {
+        workspace.classList.add('is-expanded');
+      }
+      syncFullscreenButton();
+    });
+    document.addEventListener('fullscreenchange', onFullscreenChange);
 
     let lifecycle;
 
@@ -128,10 +177,13 @@
     NetSim.Components.wireControls(container, lifecycle);
     lifecycle.initialize();
 
-    NetSim.State.logVisit(sim.name, '#/sim/' + layerId + '/' + simId);
-
     // expose destroy so the router can clean up on navigation away
-    container._simDestroy = lifecycle.destroy;
+    container._simDestroy = () => {
+      document.removeEventListener('fullscreenchange', onFullscreenChange);
+      if (document.fullscreenElement === workspace && document.exitFullscreen) document.exitFullscreen();
+      workspace.classList.remove('is-expanded');
+      lifecycle.destroy();
+    };
   }
 
   function genericPlaceholderLifecycle(canvas, log, sim) {

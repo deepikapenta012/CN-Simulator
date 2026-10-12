@@ -115,7 +115,7 @@
       ctx.log('Ready to send ' + totalFrames + ' frames, one at a time.');
     }
 
-    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
 
     function advance() {
       if (index >= steps.length - 1) { stop(); return; }
@@ -131,7 +131,7 @@
         host = ctx.canvas.querySelector('.fw-mount');
         rebuild();
       },
-      start() { if (timer) return; timer = setInterval(() => { if (index >= steps.length - 1) { stop(); return; } advance(); }, 650); },
+      start() { if (timer) return; timer = NetSim.SimTiming.setInterval(() => { if (index >= steps.length - 1) { stop(); return; } advance(); }, 650); },
       pause() { stop(); },
       step() { stop(); advance(); },
       reset() { rebuild(); },

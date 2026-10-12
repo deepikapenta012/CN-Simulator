@@ -266,7 +266,7 @@
       ctx.log('Topology set to ' + TOPOLOGIES[topoKey].label + (failed ? ' (failure scenario active)' : '') + '.');
     }
 
-    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
 
     function advance() {
       if (index >= steps.length - 1) { stop(); return; }
@@ -285,7 +285,7 @@
       },
       start() {
         if (timer) return;
-        timer = setInterval(() => { if (index >= steps.length - 1) { stop(); return; } advance(); }, 900);
+        timer = NetSim.SimTiming.setInterval(() => { if (index >= steps.length - 1) { stop(); return; } advance(); }, 900);
       },
       pause() { stop(); },
       step() { stop(); advance(); },

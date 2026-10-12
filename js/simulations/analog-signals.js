@@ -60,7 +60,7 @@
       });
     }
 
-    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
 
     function advance(step) {
       params.phaseDeg = (params.phaseDeg + step) % 360;
@@ -78,7 +78,7 @@
       },
       start() {
         if (timer) return;
-        timer = setInterval(() => advance(8), 80);
+        timer = NetSim.SimTiming.setInterval(() => advance(8), 80);
         ctx.log('Scrolling the waveform (phase advancing continuously).');
       },
       pause() { stop(); },

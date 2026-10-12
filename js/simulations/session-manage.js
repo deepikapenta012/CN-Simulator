@@ -147,7 +147,7 @@
       ctx.log(mode === 'checkpoint' ? 'Ready \u2014 a ' + TOTAL_PAGES + '-page transfer with checkpoints every ' + interval + ' pages.' : 'Ready \u2014 two parties sharing one token.');
     }
 
-    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
 
     function advance() {
       if (index >= events.length - 1) { stop(); return; }
@@ -163,7 +163,7 @@
         host = ctx.canvas.querySelector('.smgr-mount');
         rebuild();
       },
-      start() { if (timer) return; timer = setInterval(() => { if (index >= events.length - 1) { stop(); return; } advance(); }, 550); },
+      start() { if (timer) return; timer = NetSim.SimTiming.setInterval(() => { if (index >= events.length - 1) { stop(); return; } advance(); }, 550); },
       pause() { stop(); },
       step() { stop(); advance(); },
       reset() { rebuild(); },

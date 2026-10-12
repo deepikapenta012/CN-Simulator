@@ -18,9 +18,14 @@
     let host = null;
 
     function draw() {
-      const points = NetSim.Core.Waveform.stepWaveform(bits.length, W, H, 0.38, (i) => (
-        [{ frac: 0, value: bits[i] === '1' ? 1 : -1 }]
-      ));
+      const revealedCount = Math.max(0, index + 1);
+      const visibleBits = bits.slice(0, revealedCount);
+      const visibleWidth = (revealedCount / bits.length) * W;
+      const points = revealedCount
+        ? NetSim.Core.Waveform.stepWaveform(revealedCount, visibleWidth, H, 0.38, (i) => (
+          [{ frac: 0, value: visibleBits[i] === '1' ? 1 : -1 }]
+        ))
+        : '';
       host.innerHTML = `
         <svg class="net-svg wave-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Digital NRZ-L signal">
           <line class="wave-axis" x1="0" y1="${H / 2}" x2="${W}" y2="${H / 2}"></line>
@@ -34,7 +39,7 @@
       ctx.setMetrics([
         { label: 'Bit Rate', value: bitRate + ' bps' },
         { label: 'Bit Duration', value: bitDuration.toFixed(0) + ' ms' },
-        { label: 'Total Bits', value: String(bits.length) },
+        { label: 'Bits Drawn', value: revealedCount + ' / ' + bits.length },
         { label: 'Transmission Time', value: (bitDuration * bits.length).toFixed(0) + ' ms' },
         { label: 'Baud Rate', value: bitRate + ' baud (1 signal element / bit for NRZ)' }
       ]);
@@ -65,7 +70,7 @@
       });
     }
 
-    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
 
     function advance() {
       if (index >= bits.length - 1) { stop(); return; }
@@ -85,7 +90,7 @@
       },
       start() {
         if (timer) return;
-        timer = setInterval(() => { if (index >= bits.length - 1) { stop(); return; } advance(); }, Math.max(150, 1000 / bitRate));
+        timer = NetSim.SimTiming.setInterval(() => { if (index >= bits.length - 1) { stop(); return; } advance(); }, Math.max(150, 1000 / bitRate));
       },
       pause() { stop(); },
       step() { stop(); advance(); },

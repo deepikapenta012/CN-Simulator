@@ -13,7 +13,6 @@
     route: { name: 'osi', params: {} },
     hoveredLayerId: null,
     selectedLayerId: null,
-    history: [],           // { ts, label, path }
     settings: {
       reduceMotion: false,
       compactCards: false
@@ -44,12 +43,6 @@
     notify();
   }
 
-  function logVisit(label, path) {
-    data.history.unshift({ ts: new Date(), label, path });
-    if (data.history.length > 50) data.history.pop();
-    notify();
-  }
-
   function updateSetting(key, value) {
     data.settings[key] = value;
     document.body.classList.toggle('reduce-motion', !!data.settings.reduceMotion);
@@ -66,7 +59,6 @@
     setRoute,
     setHoveredLayer,
     setSelectedLayer,
-    logVisit,
     updateSetting,
     getState
   };

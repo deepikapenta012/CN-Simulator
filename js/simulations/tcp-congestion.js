@@ -113,7 +113,7 @@
       ctx.log('Ready \u2014 cwnd starts at 1 MSS, ssthresh at ' + INITIAL_SSTHRESH + '.');
     }
 
-    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
 
     function advance() {
       if (index >= rounds.length - 1) { stop(); return; }
@@ -129,7 +129,7 @@
         host = ctx.canvas.querySelector('.congestion-mount');
         rebuild();
       },
-      start() { if (timer) return; timer = setInterval(() => { if (index >= rounds.length - 1) { stop(); return; } advance(); }, 500); },
+      start() { if (timer) return; timer = NetSim.SimTiming.setInterval(() => { if (index >= rounds.length - 1) { stop(); return; } advance(); }, 500); },
       pause() { stop(); },
       step() { stop(); advance(); },
       reset() { rebuild(); },

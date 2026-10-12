@@ -70,7 +70,7 @@
       ctx.log('Ready \u2014 three tabs about to share one network connection.');
     }
 
-    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
 
     function advance() {
       if (index >= events.length - 1) { stop(); return; }
@@ -86,7 +86,7 @@
         host = ctx.canvas.querySelector('.mux-mount');
         rebuild();
       },
-      start() { if (timer) return; timer = setInterval(() => { if (index >= events.length - 1) { stop(); return; } advance(); }, 500); },
+      start() { if (timer) return; timer = NetSim.SimTiming.setInterval(() => { if (index >= events.length - 1) { stop(); return; } advance(); }, 500); },
       pause() { stop(); },
       step() { stop(); advance(); },
       reset() { rebuild(); },

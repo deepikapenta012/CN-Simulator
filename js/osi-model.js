@@ -165,7 +165,8 @@
         { title: 'Signal Representation', simulationIds: ['analog-signals', 'digital-signals'] },
         { title: 'Line Coding', simulationIds: ['unipolar', 'polar', 'polar-nrzi', 'polar-rz', 'manchester'] },
         { title: 'Transmission Media', simulationIds: ['transmission-media'] },
-        { title: 'Signal Quality and Impairments', simulationIds: ['impairments'] }
+        { title: 'Transmission Impairments', simulationIds: ['attenuation', 'noise', 'distortion'] },
+        { title: 'Channel Capacity', simulationIds: ['nyquist-capacity', 'shannon-capacity'] }
       ],
       simulations: [
         { id: 'analog-signals', name: 'Analog Signals', tag: 'signaling', desc: 'Continuous waveforms carrying information — amplitude, frequency and phase.', status: 'available' },
@@ -175,7 +176,11 @@
         { id: 'polar-nrzi', name: 'Polar NRZ-I Encoding', tag: 'line coding', desc: 'Represent a 1 with a voltage transition at the start of its bit interval and a 0 with no transition.', status: 'available' },
         { id: 'polar-rz', name: 'Polar RZ Encoding', tag: 'line coding', desc: 'Use a positive or negative pulse for each bit, returning the signal to zero during the second half of the bit interval.', status: 'available' },
         { id: 'transmission-media', name: 'Transmission Media', tag: 'medium', desc: 'Copper, fiber and wireless media compared as a signal travels and attenuates.', status: 'available' },
-        { id: 'impairments', name: 'Transmission Impairments', tag: 'medium', desc: 'Attenuation, noise and distortion along a link, and their effect on SNR.', status: 'available' },
+        { id: 'attenuation', name: 'Attenuation', tag: 'signal loss', desc: 'Explore how signal amplitude decreases with distance and channel loss.', status: 'available' },
+        { id: 'noise', name: 'Noise', tag: 'signal interference', desc: 'Compare a clean signal with random noise at different signal-to-noise ratios.', status: 'available' },
+        { id: 'distortion', name: 'Distortion', tag: 'signal shape', desc: 'See how frequency components changing unequally alter a transmitted waveform.', status: 'available' },
+        { id: 'nyquist-capacity', name: 'Nyquist Bit-Rate Calculator', tag: 'noiseless channel capacity', desc: 'Calculate the Nyquist maximum bit rate from bandwidth and the number of discrete signal levels.', status: 'available' },
+        { id: 'shannon-capacity', name: 'Shannon Channel-Capacity Calculator', tag: 'noisy channel capacity', desc: 'Calculate the Shannon capacity from bandwidth and signal-to-noise ratio.', status: 'available' },
         { id: 'manchester', name: 'Manchester Encoding', tag: 'line coding', desc: 'Self-clocking line encoding via mid-bit transitions.', status: 'available' }
       ]
     }

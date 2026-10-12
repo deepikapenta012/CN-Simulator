@@ -45,6 +45,18 @@
 }
 .sim-controls .btn.icon { min-width: 2.2rem; justify-content: center; }
 
+.sim-playback-speed {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+.sim-playback-speed input[type="range"] { width: min(220px, 45vw); accent-color: var(--accent); }
+.sim-playback-speed output { min-width: 3.2rem; color: var(--ink); font-family: var(--f-mono); }
+
 .sim-params {
   border: 1px solid var(--line);
   padding: 0.9rem 1rem;
@@ -126,10 +138,47 @@
 }
 .sim-how p { font-size: 0.9rem; max-width: 68ch; }
 
+.sim-workspace-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.9rem; }
+.sim-workspace-head .section-label { margin: 0; }
+.sim-fullscreen-toggle { flex: none; }
+.sim-interactive:fullscreen,
+.sim-interactive.is-expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  margin: 0;
+  padding: 1.25rem;
+  overflow: auto;
+  background: var(--paper);
+  color: var(--ink);
+}
+.sim-interactive:fullscreen .sim-layout,
+.sim-interactive.is-expanded .sim-layout { min-height: calc(100vh - 6rem); }
+.sim-interactive:fullscreen .sim-canvas,
+.sim-interactive.is-expanded .sim-canvas { min-height: min(62vh, 680px); }
+.sim-interactive:fullscreen .wave-svg,
+.sim-interactive.is-expanded .wave-svg { max-height: min(60vh, 640px); }
+.sim-interactive:fullscreen::backdrop { background: var(--paper); }
+
+@media (max-width: 640px) {
+  .sim-workspace-head { align-items: flex-start; }
+  .sim-interactive:fullscreen,
+  .sim-interactive.is-expanded { padding: 0.75rem; }
+  .sim-interactive:fullscreen .sim-layout,
+  .sim-interactive.is-expanded .sim-layout { min-height: 0; }
+  .sim-interactive:fullscreen .sim-canvas,
+  .sim-interactive.is-expanded .sim-canvas { min-height: 38vh; }
+}
+
 .sim-learning-intro { margin-bottom: 1.5rem; }
 .sim-learning-intro h3 { font-size: 1.05rem; margin: 1rem 0 0.3rem; }
 .sim-learning-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; margin-top: 1.5rem; }
 .sim-learning-details .sim-how { border-top: 1px solid var(--line); padding-top: 1rem; }
+.sim-learning-points { margin: 0; padding-left: 1.25rem; max-width: 68ch; color: var(--ink-soft); font-size: 0.9rem; }
+.sim-learning-points li { padding-left: 0.15rem; margin: 0.35rem 0; }
 @media (max-width: 640px) {
   .sim-learning-details { grid-template-columns: minmax(0, 1fr); gap: 0.25rem; }
 }
@@ -373,6 +422,73 @@
 .wave-bitlabel { font-family: var(--f-mono); font-size: 11px; fill: var(--ink-faint); }
 .wave-tracklabel { font-family: var(--f-mono); font-size: 10px; fill: var(--ink-faint); letter-spacing: 0.03em; }
 .line-code-note { margin: 0.6rem 0 0; font-size: 0.78rem; color: var(--ink-faint); }
+
+.capacity-canvas { align-items: stretch; }
+.capacity-single-result { width: min(100%, 680px); margin: 0 auto; padding: 1.25rem; border: 1px solid var(--line); background: var(--paper); }
+.capacity-single-result > strong { display: block; margin: 0.3rem 0 1rem; font-family: var(--f-mono); font-size: clamp(1.4rem, 5vw, 2rem); color: var(--accent); }
+.capacity-formula { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.4rem 1rem; padding: 0.7rem; background: var(--paper-raised); font-family: var(--f-mono); font-size: 0.82rem; }
+.capacity-formula span:first-child { font-weight: 700; }
+.capacity-results { width: min(100%, 680px); margin: 0 auto; }
+.capacity-result { margin: 0.5rem 0 1.25rem; }
+.capacity-result-label { font-family: var(--f-mono); font-size: 0.78rem; color: var(--ink-soft); }
+.capacity-result strong { display: block; margin: 0.15rem 0 0.45rem; font-family: var(--f-mono); font-size: 1.25rem; }
+.capacity-bar { height: 0.75rem; border: 1px solid var(--line-strong); background: var(--paper); }
+.capacity-bar span { display: block; height: 100%; background: var(--teal); transition: width 0.2s ease; }
+.capacity-bar.shannon span { background: var(--accent); }
+.capacity-result small { display: block; margin-top: 0.25rem; color: var(--ink-faint); font-family: var(--f-mono); }
+.capacity-bound { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.8rem; border: 1px solid var(--accent); background: var(--accent-soft); }
+.capacity-bound span { font-size: 0.82rem; color: var(--ink-soft); }
+.capacity-bound strong { flex: none; font-family: var(--f-mono); }
+.capacity-caveat, .capacity-help { margin: 0.65rem 0 0; font-size: 0.78rem; color: var(--ink-faint); }
+
+/* Transmission media taxonomy map and comparison. */
+.sim-static-content { min-width: 0; }
+.sim-static-content .media-map { margin-bottom: 1.5rem; }
+.media-map { width: 100%; }
+.media-map-root {
+  position: relative;
+  width: fit-content;
+  margin: 0 auto 1.2rem;
+  padding: 0.7rem 1.2rem;
+  border: 2px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper-raised);
+  font-family: var(--f-display);
+  font-weight: 700;
+  text-align: center;
+}
+.media-map-root::after { content: ''; position: absolute; left: 50%; top: 100%; height: 1.2rem; border-left: 1px solid var(--line-strong); }
+.media-map-branches { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; position: relative; padding-top: 1rem; }
+.media-map-branches::before { content: ''; position: absolute; top: 0; left: 25%; right: 25%; border-top: 1px solid var(--line-strong); }
+.media-branch { min-width: 0; position: relative; border: 1px solid var(--line); padding: 0.75rem; background: var(--paper); }
+.media-branch::before { content: ''; position: absolute; left: 50%; bottom: 100%; height: 1rem; border-left: 1px solid var(--line-strong); }
+.media-branch-title { margin: 0 0 0.65rem; text-align: center; font-size: 1rem; }
+.media-map-families { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.6rem; align-items: start; }
+.media-map-family { min-width: 0; border-left: 1px solid var(--line-strong); padding-left: 0.55rem; }
+.media-family-title { display: block; padding: 0.5rem; border: 1px solid var(--line-strong); background: var(--paper-raised); font-family: var(--f-display); font-size: 0.86rem; }
+.media-map-subtypes { display: grid; gap: 0.35rem; margin: 0.45rem 0 0 0.35rem; padding-left: 0.55rem; border-left: 1px solid var(--line); }
+.media-map-subtypes span { padding: 0.35rem; border: 1px dashed var(--line); background: var(--paper-raised); color: var(--ink-soft); font-size: 0.72rem; }
+.media-map-leaves { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; border-left: 1px solid var(--line-strong); margin-left: 0.5rem; padding-left: 0.65rem; }
+.media-map-node { min-width: 0; display: flex; flex-direction: column; gap: 0.2rem; padding: 0.5rem; border: 1px solid var(--line-strong); background: var(--paper-raised); font-size: 0.8rem; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
+.media-map-node strong { font-family: var(--f-display); font-size: 0.88rem; }
+.media-map-node span { color: var(--ink-faint); font-size: 0.72rem; }
+.media-map-node-wide { grid-column: 1 / -1; }
+[data-media-node].is-current { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+[data-media-node].is-seen { border-color: var(--teal); }
+.media-comparison-title { margin: 0.25rem 0 0; font-size: 1.05rem; }
+.media-table-wrap { width: 100%; }
+.media-comparison-table { min-width: 1100px; }
+.media-table-note { margin: -0.5rem 0 0; font-size: 0.75rem; color: var(--ink-faint); }
+
+@media (max-width: 640px) {
+  .sim-static-content .media-map { margin-bottom: 1rem; }
+  .media-map-branches { grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
+  .media-map-branches::before { display: none; }
+  .media-branch::before { display: none; }
+  .media-map-families { grid-template-columns: minmax(0, 1fr); }
+  .media-map-leaves { grid-template-columns: minmax(0, 1fr); }
+  .media-map-node-wide { grid-column: auto; }
+}
 
 /* ---- bit-grid displays (CRC, Hamming, digital line coding) ---- */
 

@@ -20,7 +20,6 @@
     if (parts[0] === 'sim' && parts[1] && parts[2]) return { name: 'sim', params: { layerId: parts[1], simId: parts[2] } };
     if (parts[0] === 'concepts') return { name: 'concepts', params: {} };
     if (parts[0] === 'concept' && parts[1]) return { name: 'concept', params: { conceptId: parts[1] } };
-    if (parts[0] === 'history') return { name: 'history', params: {} };
     if (parts[0] === 'settings') return { name: 'settings', params: {} };
     return { name: 'osi', params: {} };
   }
@@ -42,36 +41,9 @@
         const concept = NetSim.OSIData.getConceptById(route.params.conceptId);
         return `<a href="#/osi">OSI Model</a> / <a href="#/concepts">Concept Explorer</a> / ${concept ? concept.name : 'Concept'}`;
       }
-      case 'history': return `<a href="#/osi">OSI Model</a> / Simulation History`;
       case 'settings': return `<a href="#/osi">OSI Model</a> / Settings`;
       default: return '';
     }
-  }
-
-  function renderHistoryPage(container) {
-    const history = NetSim.State.getState().history;
-    container.innerHTML = `
-      <div class="layer-head">
-        <div class="layer-eyebrow">Simulation History</div>
-        <h1>Recently visited</h1>
-        <p class="lede">Pages you've opened this session, most recent first.</p>
-      </div>
-      ${history.length ? `
-        <ul class="plain-list">
-          ${history.map((h) => `
-            <li>
-              <a href="${h.path}">${h.label}</a>
-              <span class="ts">${h.ts.toLocaleTimeString([], { hour12: false })}</span>
-            </li>
-          `).join('')}
-        </ul>
-      ` : `
-        <div class="placeholder-box">
-          <strong>Nothing yet</strong>
-          Open a layer or simulation and it will show up here.
-        </div>
-      `}
-    `;
   }
 
   function renderSettingsPage(container) {
@@ -132,10 +104,6 @@
         break;
       case 'layer':
         NetSim.Components.renderLayerPage(container, route.params.layerId);
-        NetSim.State.logVisit(
-          (NetSim.OSIData.getLayerById(route.params.layerId) || {}).name + ' layer',
-          '#/layer/' + route.params.layerId
-        );
         break;
       case 'sim':
         NetSim.Components.renderSimulationPage(container, route.params.layerId, route.params.simId);
@@ -145,13 +113,6 @@
         break;
       case 'concept':
         NetSim.Components.renderConceptPage(container, route.params.conceptId);
-        NetSim.State.logVisit(
-          (NetSim.OSIData.getConceptById(route.params.conceptId) || {}).name,
-          '#/concept/' + route.params.conceptId
-        );
-        break;
-      case 'history':
-        renderHistoryPage(container);
         break;
       case 'settings':
         renderSettingsPage(container);
