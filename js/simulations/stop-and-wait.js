@@ -52,28 +52,17 @@
     }
 
     function draw() {
-      const step = steps[Math.max(0, index)];
-      const visual = step ? step.visual : null;
-      const frameLabel = step && step.frame ? 'Frame ' + step.frame : '';
-      let packetHTML = '';
-      let arrowDir = '\u2192';
-
-      if (visual === 'frame-send' || visual === 'frame-arrive') packetHTML = `<span class="fw-packet">${frameLabel}</span>`;
-      else if (visual === 'frame-lost') packetHTML = `<span class="fw-packet" style="border-color:var(--err);background:#f3d9d5;color:var(--err);">${frameLabel} \u2717</span>`;
-      else if (visual === 'ack-send' || visual === 'ack-arrive') { packetHTML = `<span class="fw-packet" style="border-color:var(--teal);background:var(--teal-soft);color:var(--teal);">ACK ${step.frame}</span>`; arrowDir = '\u2190'; }
-      else if (visual === 'ack-lost') { packetHTML = `<span class="fw-packet" style="border-color:var(--err);background:#f3d9d5;color:var(--err);">ACK ${step.frame} \u2717</span>`; arrowDir = '\u2190'; }
-      else if (visual === 'timeout') packetHTML = `<span class="fw-packet" style="border-color:var(--warn);background:#f2e6c9;color:var(--warn);">\u23f1 timeout</span>`;
-      else if (visual === 'delivered') packetHTML = `<span class="fw-packet" style="border-color:var(--ok);background:#d9ecdf;color:var(--ok);">${frameLabel} delivered \u2713</span>`;
-
-      host.innerHTML = `
-        <div class="fw-diagram">
-          <div class="fw-node">Sender</div>
-          <div class="fw-packet-track">${packetHTML}</div>
-          <div class="fw-node" style="border-color:var(--teal);color:var(--teal);">${arrowDir === '\u2190' ? '\u2190' : '\u2192'}</div>
-          <div class="fw-packet-track"></div>
-          <div class="fw-node">Receiver</div>
-        </div>
-      `;
+      const actions = steps.slice(0, index + 1).flatMap((event) => {
+        if (event.visual === 'frame-send') return [{ type: 'frame', label: 'F' + event.frame }];
+        if (event.visual === 'frame-lost') return [{ type: 'frame', label: 'F' + event.frame, outcome: 'lost' }];
+        if (event.visual === 'frame-arrive') return [{ type: 'deliver', label: 'F' + event.frame + ' received' }];
+        if (event.visual === 'ack-send') return [{ type: 'ack', label: 'ACK' + event.frame }];
+        if (event.visual === 'ack-lost') return [{ type: 'ack', label: 'ACK' + event.frame, outcome: 'lost' }];
+        if (event.visual === 'timeout') return [{ type: 'timeout', label: 'timeout' }];
+        if (event.visual === 'delivered') return [{ type: 'ack-arrival', label: 'ACK' + event.frame + ' received' }];
+        return [];
+      });
+      host.innerHTML = NetSim.Components.renderTimingDiagram(actions, actions.length - 1) + '<p class="timing-caption">Each step adds a transmission event. Frames travel sender → receiver; ACKs travel receiver → sender.</p>';
 
       const efficiency = stats.attempts ? (totalFrames / stats.attempts) * 100 : 100;
       ctx.setMetrics([

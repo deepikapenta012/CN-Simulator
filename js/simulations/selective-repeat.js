@@ -47,16 +47,16 @@
     }
 
     function draw() {
-      const state = frameState(index);
-      const boxes = [];
-      for (let f = 1; f <= windowSize; f++) {
-        const s = state[f] || 'pending';
-        const cls = s === 'acked' ? 'delivered' : s === 'lost' ? 'lost' : s === 'buffered' ? 'in-flight' : s === 'sent' || s === 'resent' ? 'in-flight' : 'pending';
-        const label = s === 'lost' ? f + ' \u2717 lost' : s === 'buffered' ? f + ' (buf)' : String(f);
-        boxes.push(`<span class="packet-chip ${cls}">${label}</span>`);
-      }
-      host.innerHTML = `<div class="packet-status-strip">${boxes.join('')}</div>
-        <p class="net-hint" style="margin-top:0.8rem;">green = delivered &amp; acked &nbsp;\u00b7&nbsp; teal = in flight / buffered &nbsp;\u00b7&nbsp; red = lost &nbsp;\u00b7&nbsp; grey = not yet sent</p>`;
+      const actions = events.slice(0, index + 1).flatMap((event) => {
+        if (event.state === 'sent' || event.state === 'resent') return [{ type: 'frame', label: 'F' + event.frame }];
+        if (event.state === 'lost') return [{ type: 'frame', label: 'F' + event.frame, outcome: 'lost' }];
+        if (event.state === 'buffered') return [{ type: 'deliver', label: 'F' + event.frame + ' buffered' }, { type: 'ack', label: 'ACK' + event.frame }];
+        if (event.state === 'acked') return [{ type: 'frame', label: 'F' + event.frame }, { type: 'ack', label: 'ACK' + event.frame }];
+        if (event.text.startsWith('Sender times out')) return [{ type: 'timeout', label: 'timeout' }];
+        return [];
+      });
+      host.innerHTML = `${NetSim.Components.renderTimingDiagram(actions, actions.length - 1)}
+        <p class="timing-caption">The receiver buffers out-of-order frames and the sender retransmits only the missing frame.</p>`;
 
       ctx.setMetrics([
         { label: 'Window Size', value: String(windowSize) },

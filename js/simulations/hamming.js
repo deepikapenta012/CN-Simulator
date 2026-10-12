@@ -94,7 +94,20 @@
           <span style="font-size:0.65rem;color:var(--ink-faint);font-family:var(--f-mono);">${i}${isParityPos ? ' (p)' : ''}</span>
         </div>`;
       }).join('');
-      host.innerHTML = `<div class="crc-stage"><div class="bitgrid" style="align-items:flex-start;">${boxes}</div></div>`;
+      const senderDone = ['codeword', 'error', 'check', 'final'].includes(phase.stage);
+      const receiverStarted = ['error', 'check', 'final'].includes(phase.stage);
+      const senderStatus = senderDone
+        ? `Data <code>${dataBits.join('')}</code> encoded as <code>${result.codeword.join('')}</code>.`
+        : `Data <code>${dataBits.join('')}</code> · calculating parity bits at positions 1, 2, and 4.`;
+      const receiverStatus = !receiverStarted
+        ? 'Waiting for the sender to transmit the 7-bit codeword.'
+        : `Received <code>${result.received.join('')}</code> · syndrome <code>${[result.synd.c4, result.synd.c2, result.synd.c1].join('')}</code> · ${result.synd.errorPos ? `corrected to <code>${result.corrected.join('')}</code>` : 'no error detected'}.`;
+      host.innerHTML = `<div class="crc-stage"><div class="bitgrid" style="align-items:flex-start;">${boxes}</div></div>
+        <div class="error-control-live">
+          <article><h3>Sender · encode</h3><p>${senderStatus}</p></article>
+          <div class="error-control-transfer" aria-hidden="true">→</div>
+          <article><h3>Receiver · decode</h3><p>${receiverStatus}</p></article>
+        </div>`;
 
       ctx.setMetrics([
         { label: 'Data Bits', value: dataBits.join('') },
@@ -111,6 +124,7 @@
         <div class="switch-text-row">
           <label for="hamData">4 data bits</label>
           <input type="text" id="hamData" maxlength="4" value="${dataBits.join('')}">
+          <small>Enter exactly four binary digits (0 or 1).</small>
         </div>
         <label class="switch-mode-option ${introduceError ? 'is-checked' : ''}">
           <input type="checkbox" id="hamErr" ${introduceError ? 'checked' : ''}>

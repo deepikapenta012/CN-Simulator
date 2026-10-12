@@ -44,6 +44,17 @@
     'polar-rz': ['Polar RZ sends a positive pulse for 1 and a negative pulse for 0, returning to zero midway through each bit.', 'The return-to-zero interval provides transitions that help receivers recover timing.', 'Provides clear bit boundaries and supports clock synchronization.', 'Uses more bandwidth and signal transitions than NRZ. NRZ or more efficient clocked codes reduce bandwidth when timing permits.']
   };
 
+  const ERROR_CONTROL_ALGORITHMS = {
+    crc: {
+      sender: ['Take the input data bits.', 'Append degree(G) zero bits.', 'Divide by the generator using XOR; append the remainder to form the frame.'],
+      receiver: ['Read the received frame.', 'Divide the entire frame by the same generator.', 'Remainder 0: accept as error-free; nonzero remainder: detect corruption and request recovery.']
+    },
+    hamming: {
+      sender: ['Place the four data bits at positions 3, 5, 6, and 7.', 'Calculate even parity bits for positions 1, 2, and 4.', 'Transmit the resulting 7-bit codeword.'],
+      receiver: ['Recalculate parity checks c1, c2, and c4.', 'Combine them as syndrome c4c2c1 to get the error position.', 'Flip the indicated bit to correct a single-bit error; syndrome 000 means no error found.']
+    }
+  };
+
   function learningNotes(sim, layer) {
     return LEARNING_NOTES[sim.id] || [
       sim.desc + ' The simulation makes its key entities, messages, and state changes visible step by step.',
@@ -82,6 +93,11 @@
         <h3>Why it is used</h3>
         <p>${notes[1]}</p>
       </section>
+
+      ${ERROR_CONTROL_ALGORITHMS[sim.id] ? `<section class="error-control-algorithms" aria-label="Sender and receiver algorithms">
+        <article><h2>Sender side algorithm</h2><ol>${ERROR_CONTROL_ALGORITHMS[sim.id].sender.map((step) => `<li>${step}</li>`).join('')}</ol></article>
+        <article><h2>Receiver side algorithm</h2><ol>${ERROR_CONTROL_ALGORITHMS[sim.id].receiver.map((step) => `<li>${step}</li>`).join('')}</ol></article>
+      </section>` : ''}
 
       ${staticContent
         ? `<section class="sim-static-content"><h2 class="section-label">Transmission Media Types</h2>${NetSim.SimRegistry.getStaticContent(sim.id)}</section>`

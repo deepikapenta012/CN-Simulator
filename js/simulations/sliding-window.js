@@ -50,16 +50,13 @@
     function draw() {
       const base = replayTo(index);
       const windowEnd = Math.min(base + windowSize - 1, totalFrames);
-      const boxes = [];
-      for (let f = 1; f <= totalFrames; f++) {
-        const inWindow = f >= base && f <= windowEnd;
-        const cls = ackedSet.has(f) ? 'delivered' : sentSet.has(f) ? 'in-flight' : 'pending';
-        boxes.push(`<span class="packet-chip ${cls} ${inWindow ? 'is-windowed' : ''}">${f}</span>`);
-      }
+      const actions = events.slice(0, index + 1).flatMap((event) => event.type === 'send'
+        ? [{ type: 'frame', label: 'F' + event.frame }]
+        : event.type === 'ack' ? [{ type: 'ack', label: 'ACK' + event.frame }] : []);
       host.innerHTML = `
         <div class="net-hint" style="margin-bottom:0.6rem;">Window (highlighted): frames ${base <= totalFrames ? base + '\u2013' + windowEnd : 'none — all done'}</div>
-        <div class="packet-status-strip">${boxes.join('')}</div>
-        <p class="net-hint" style="margin-top:0.8rem;">green = acknowledged &nbsp;\u00b7&nbsp; teal = sent, awaiting ACK &nbsp;\u00b7&nbsp; grey = not yet sent</p>
+        ${NetSim.Components.renderTimingDiagram(actions, actions.length - 1)}
+        <p class="timing-caption">Multiple frames may be in flight before cumulative ACKs slide the sender window.</p>
       `;
 
       const sentCount = sentSet.size, ackedCount = ackedSet.size;

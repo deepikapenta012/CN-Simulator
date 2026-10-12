@@ -42,6 +42,7 @@
   NetSim.SimRegistry.register('crc', function factory(ctx) {
     let message = '1101011011';
     let genKey = 'g4';
+    let customGenBits = '10011';
     let introduceError = false;
     let phases = [];
     let index = -1;
@@ -49,8 +50,14 @@
     let host = null;
     let result = null;
 
+    function currentGenerator() {
+      return genKey === 'custom'
+        ? { bits: customGenBits, label: 'Custom (' + customGenBits + ')' }
+        : GENERATORS[genKey];
+    }
+
     function buildResult() {
-      const gen = GENERATORS[genKey].bits;
+      const gen = currentGenerator().bits;
       const r = gen.length - 1;
       const augmented = message + '0'.repeat(r);
       const enc = divide(augmented, gen);
@@ -71,7 +78,7 @@
     function buildPhases() {
       result = buildResult();
       const p = [];
-      p.push({ text: 'Message: ' + message + ' \u00b7 Generator: ' + GENERATORS[genKey].label, view: 'intro' });
+      p.push({ text: 'Message: ' + message + ' \u00b7 Generator: ' + currentGenerator().label, view: 'intro' });
       p.push({ text: 'Append ' + result.r + ' zero bit(s): ' + result.augmented, view: 'augmented' });
       result.enc.trace.forEach((t, i) => {
         p.push({
@@ -124,10 +131,23 @@
         body = `<div class="bitgrid">${bitGridHTML(result.check.remainder)}</div>
           <p class="net-hint">Final remainder after dividing the received codeword</p>`;
       }
-      host.innerHTML = `<div class="crc-stage">${body}</div>`;
+      const senderDone = ['remainder', 'codeword', 'error', 'check-intro', 'final'].includes(phase && phase.view);
+      const receiverStarted = ['error', 'check-intro', 'final'].includes(phase && phase.view);
+      const senderStatus = senderDone
+        ? `Codeword ready: <code>${result.codeword}</code>`
+        : `Data <code>${message}</code> · generator <code>${result.gen}</code><br>Remainder calculation is in progress.`;
+      const receiverStatus = !receiverStarted
+        ? 'Waiting for the sender to transmit the codeword.'
+        : `Received: <code>${result.received}</code><br>Remainder: <code>${result.check.remainder}</code> · ${result.noErrorDetected ? 'no error detected' : 'corruption detected'}`;
+      host.innerHTML = `<div class="crc-stage">${body}</div>
+        <div class="error-control-live">
+          <article><h3>Sender · encode</h3><p>${senderStatus}</p></article>
+          <div class="error-control-transfer" aria-hidden="true">→</div>
+          <article><h3>Receiver · check</h3><p>${receiverStatus}</p></article>
+        </div>`;
 
       ctx.setMetrics([
-        { label: 'Generator', value: GENERATORS[genKey].label },
+        { label: 'Generator', value: currentGenerator().label },
         { label: 'CRC Length', value: (result.gen.length - 1) + ' bits' },
         { label: 'Transmitted Codeword', value: result.codeword },
         { label: 'Error Introduced', value: introduceError ? 'Bit ' + result.errorPos : 'No' },
@@ -141,6 +161,7 @@
         <div class="switch-text-row">
           <label for="crcMsg">Message bits</label>
           <input type="text" id="crcMsg" maxlength="14" value="${message}">
+          <small>Enter up to 14 binary digits (0 or 1).</small>
         </div>
         <fieldset class="switch-mode-group" role="radiogroup" aria-label="Generator polynomial">
           <legend class="section-label" style="margin:0 0 0.5rem;border:none;padding:0;">Generator</legend>
@@ -150,7 +171,16 @@
               ${GENERATORS[k].label}
             </label>
           `).join('')}
+          <label class="switch-mode-option ${genKey === 'custom' ? 'is-checked' : ''}">
+            <input type="radio" name="crcGen" value="custom" ${genKey === 'custom' ? 'checked' : ''}>
+            Custom generator polynomial
+          </label>
         </fieldset>
+        <div class="switch-text-row">
+          <label for="crcCustomGen">Generator bits</label>
+          <input type="text" id="crcCustomGen" maxlength="9" value="${customGenBits}" inputmode="numeric" pattern="1[01]*1" aria-describedby="crcGenHelp">
+          <small id="crcGenHelp">Enter binary coefficients from highest to lowest power (for example, 10011). Start and end with 1; degree 1–8.</small>
+        </div>
         <label class="switch-mode-option ${introduceError ? 'is-checked' : ''}" style="margin-top:0.5rem;">
           <input type="checkbox" id="crcErr" ${introduceError ? 'checked' : ''}>
           Introduce a transmission error
@@ -162,6 +192,18 @@
       });
       ctx.params.querySelectorAll('input[name="crcGen"]').forEach((r) => {
         r.addEventListener('change', () => { genKey = r.value; rebuild(); });
+      });
+      ctx.params.querySelector('#crcCustomGen').addEventListener('change', (e) => {
+        const value = e.target.value.trim();
+        if (!/^1[01]*1$/.test(value) || value.length > 9) {
+          e.target.setCustomValidity('Use 2–9 binary digits, with 1 at both ends.');
+          e.target.reportValidity();
+          return;
+        }
+        e.target.setCustomValidity('');
+        customGenBits = value;
+        genKey = 'custom';
+        rebuild();
       });
       ctx.params.querySelector('#crcErr').addEventListener('change', (e) => { introduceError = e.target.checked; rebuild(); });
     }

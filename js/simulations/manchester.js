@@ -1,8 +1,6 @@
 /* ==========================================================================
    NetSim — simulations/manchester.js
-   Encodes a user bit string as Manchester (mid-bit transition) and draws
-   it above a faint NRZ reference so the difference — and the doubled
-   baud rate it costs — is visible directly.
+   Encodes a user bit string as Manchester (mid-bit transition).
 
    Convention used here (G.E. Thomas): bit 1 = LOW-to-HIGH transition at
    mid-bit; bit 0 = HIGH-to-LOW transition at mid-bit. (IEEE 802.3 uses
@@ -30,27 +28,16 @@
     function draw() {
       const revealedCount = index >= 0 ? index + 1 : 0;
       const revealedWidth = (revealedCount / bits.length) * W;
-      const nrzBits = bits.slice(0, revealedCount);
-      const nrzPoints = revealedCount
-        ? NetSim.Core.Waveform.stepWaveform(revealedCount, revealedWidth, H / 2 - 10, 0.35, (i) => (
-          [{ frac: 0, value: nrzBits[i] === '1' ? 1 : -1 }]
-        ))
-        : '';
       const manchesterBits = bits.slice(0, revealedCount);
       const manchesterPoints = manchesterBits.length
-        ? NetSim.Core.Waveform.stepWaveform(manchesterBits.length, revealedWidth, H / 2 - 10, 0.35, manchesterSegments)
+        ? NetSim.Core.Waveform.stepWaveform(manchesterBits.length, revealedWidth, H - 60, 0.35, manchesterSegments)
         : '';
 
       host.innerHTML = `
         <svg class="net-svg wave-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Manchester encoding">
-          <text class="wave-tracklabel" x="4" y="14">NRZ (reference)</text>
-          <g transform="translate(0,20)">
-            <line class="wave-axis" x1="0" y1="${(H / 2 - 10) / 2}" x2="${W}" y2="${(H / 2 - 10) / 2}"></line>
-            <polyline class="wave-line wave-line--ghost" points="${nrzPoints}"></polyline>
-          </g>
-          <text class="wave-tracklabel" x="4" y="${H / 2 + 24}">Manchester</text>
-          <g transform="translate(0,${H / 2 + 30})">
-            <line class="wave-axis" x1="0" y1="${(H / 2 - 10) / 2}" x2="${W}" y2="${(H / 2 - 10) / 2}"></line>
+          <text class="wave-tracklabel" x="4" y="16">Manchester</text>
+          <g transform="translate(0,30)">
+            <line class="wave-axis" x1="0" y1="${(H - 60) / 2}" x2="${W}" y2="${(H - 60) / 2}"></line>
             <polyline class="wave-line wave-line--digital" points="${manchesterPoints}"></polyline>
           </g>
           ${bits.map((b, i) => `<text class="wave-bitlabel" x="${((i + 0.5) / bits.length) * W}" y="${H - 4}" text-anchor="middle">${b}</text>`).join('')}
