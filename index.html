@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetSim — Computer Networks Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/simulation.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a href="#/osi" class="brand">
+    <span class="brand-mark">NS</span>
+    <span class="brand-text">
+      <span class="brand-name">NetSim</span>
+      <span class="brand-sub">Computer Networks Simulator</span>
+    </span>
+  </a>
+
+  <button class="nav-toggle" id="navToggle" aria-expanded="false" aria-controls="navMenu" aria-label="Toggle navigation">
+    <span></span><span></span><span></span>
+  </button>
+
+  <nav class="nav-menu" id="navMenu">
+    <a href="#/osi" data-route="osi">OSI Model</a>
+    <a href="#/concepts" data-route="concepts">Concept Explorer</a>
+    <a href="#/history" data-route="history">Simulation History</a>
+    <a href="#/settings" data-route="settings">Settings</a>
+  </nav>
+</header>
+
+<div class="crumb" id="crumb"></div>
+
+<main id="app" role="main"></main>
+
+<footer class="foot">
+  <span>NetSim — built for learning the OSI model, one layer at a time.</span>
+</footer>
+
+<script src="js/state.js"></script>
+<script src="js/osi-model.js"></script>
+
+<script src="js/core/network.js"></script>
+<script src="js/core/packet.js"></script>
+<script src="js/core/event-queue.js"></script>
+<script src="js/core/simulation-engine.js"></script>
+<script src="js/core/waveform.js"></script>
+<script src="js/core/crc32.js"></script>
+
+<script src="js/simulations/registry.js"></script>
+
+<script src="js/components/osi-layer.js"></script>
+<script src="js/components/layer-page.js"></script>
+<script src="js/components/simulation-card.js"></script>
+<script src="js/components/controls.js"></script>
+<script src="js/components/event-log.js"></script>
+<script src="js/components/metrics.js"></script>
+<script src="js/components/concept-explorer.js"></script>
+<script src="js/components/network-canvas.js"></script>
+<script src="js/components/simulation-controls.js"></script>
+<script src="js/components/simulation-page.js"></script>
+<script src="js/components/concept-page.js"></script>
+
+<script src="js/simulations/switching.js"></script>
+<script src="js/simulations/analog-signals.js"></script>
+<script src="js/simulations/digital-signals.js"></script>
+<script src="js/simulations/line-coding.js"></script>
+<script src="js/simulations/transmission-media.js"></script>
+<script src="js/simulations/impairments.js"></script>
+<script src="js/simulations/manchester.js"></script>
+<script src="js/simulations/topologies.js"></script>
+<script src="js/simulations/network-types.js"></script>
+<script src="js/simulations/osi-vs-tcpip.js"></script>
+<script src="js/simulations/crc.js"></script>
+<script src="js/simulations/hamming.js"></script>
+<script src="js/simulations/stop-and-wait.js"></script>
+<script src="js/simulations/sliding-window.js"></script>
+<script src="js/simulations/go-back-n.js"></script>
+<script src="js/simulations/selective-repeat.js"></script>
+<script src="js/simulations/aloha.js"></script>
+<script src="js/simulations/csma-cd.js"></script>
+<script src="js/simulations/csma-ca.js"></script>
+<script src="js/simulations/ethernet-frame.js"></script>
+<script src="js/simulations/wifi-frame.js"></script>
+<script src="js/simulations/distance-vector.js"></script>
+<script src="js/simulations/link-state.js"></script>
+<script src="js/simulations/ospf.js"></script>
+<script src="js/simulations/bgp.js"></script>
+<script src="js/simulations/datagram.js"></script>
+<script src="js/simulations/ipv4.js"></script>
+<script src="js/simulations/ipv6.js"></script>
+<script src="js/simulations/subnetting.js"></script>
+<script src="js/simulations/cidr.js"></script>
+<script src="js/simulations/nat.js"></script>
+<script src="js/simulations/arp.js"></script>
+<script src="js/simulations/rarp.js"></script>
+<script src="js/simulations/icmp.js"></script>
+<script src="js/simulations/igmp.js"></script>
+<script src="js/simulations/dhcp.js"></script>
+<script src="js/simulations/tcp.js"></script>
+<script src="js/simulations/dns.js"></script>
+<script src="js/simulations/session-establish.js"></script>
+<script src="js/simulations/session-manage.js"></script>
+<script src="js/simulations/session-terminate.js"></script>
+<script src="js/simulations/udp.js"></script>
+<script src="js/simulations/tcp.js"></script>
+<script src="js/simulations/tcp-window.js"></script>
+<script src="js/simulations/tcp-congestion.js"></script>
+<script src="js/simulations/tcp-timers.js"></script>
+<script src="js/simulations/qos.js"></script>
+<script src="js/simulations/multiplexing.js"></script>
+
+<script src="js/router.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

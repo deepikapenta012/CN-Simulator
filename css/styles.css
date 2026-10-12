@@ -1,0 +1,190 @@
+/* ==========================================================================
+   NetSim — design tokens & base
+   Datasheet / schematic aesthetic: paper background, condensed display type
+   for headings, monospace for protocol & data labels (these are technical
+   identifiers, not decoration), restrained rust/teal accent pair.
+   ========================================================================== */
+
+:root {
+  /* color */
+  --paper:        #F3F1EA;
+  --paper-raised: #FBFAF6;
+  --ink:          #171B22;
+  --ink-soft:     #4B5160;
+  --ink-faint:    #838A99;
+  --line:         #CFC9B8;
+  --line-strong:  #A9A28D;
+  --accent:       #B5562A;      /* rust — selection / primary signal */
+  --accent-soft:  #E9CBB8;
+  --accent-ink:   #FBFAF6;
+  --teal:         #2C6E6B;      /* secondary — links, protocol tags */
+  --teal-soft:    #D3E4E1;
+  --ok:           #3D7A5C;
+  --warn:         #A8791C;
+  --err:          #A13A2E;
+
+  /* type */
+  --f-display: 'Archivo Narrow', 'Arial Narrow', sans-serif;
+  --f-body:    'IBM Plex Sans', system-ui, sans-serif;
+  --f-mono:    'IBM Plex Mono', 'Courier New', monospace;
+
+  /* layout */
+  --maxw: 1040px;
+  --radius: 3px;
+  --gap: 1.25rem;
+}
+
+* { box-sizing: border-box; }
+
+html { min-width: 320px; }
+body { min-width: 320px; overflow-x: hidden; }
+
+html { color-scheme: light; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--teal); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+button {
+  font-family: var(--f-body);
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+h1, h2, h3 {
+  font-family: var(--f-display);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  margin: 0 0 0.4em;
+  color: var(--ink);
+}
+
+p { margin: 0 0 1em; color: var(--ink-soft); }
+
+code, .mono { font-family: var(--f-mono); }
+
+/* ---- topbar ---- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.5rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper-raised);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--ink);
+}
+.brand:hover { text-decoration: none; }
+
+.brand-mark {
+  font-family: var(--f-mono);
+  font-weight: 600;
+  font-size: 0.85rem;
+  border: 1px solid var(--ink);
+  padding: 0.25rem 0.4rem;
+  line-height: 1;
+}
+
+.brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+.brand-name { font-family: var(--f-display); font-weight: 700; font-size: 1.15rem; }
+.brand-sub { font-size: 0.72rem; color: var(--ink-faint); }
+
+.nav-menu {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.92rem;
+}
+.nav-menu a { color: var(--ink-soft); }
+.nav-menu a.active { color: var(--accent); font-weight: 600; }
+.nav-menu a:hover { color: var(--ink); text-decoration: none; }
+
+.nav-toggle {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  background: none;
+  border: 1px solid var(--line);
+  padding: 0.5rem;
+  border-radius: var(--radius);
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+}
+.nav-toggle span { width: 18px; height: 2px; background: var(--ink); display: block; }
+
+/* ---- breadcrumb ---- */
+
+.crumb {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 0.9rem 1.5rem 0;
+  font-size: 0.85rem;
+  color: var(--ink-faint);
+}
+.crumb a { color: var(--teal); }
+
+/* ---- main shell ---- */
+
+#app {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 1.25rem 1.5rem 4rem;
+}
+
+.foot {
+  border-top: 1px solid var(--line);
+  padding: 1.25rem 1.5rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+}
+
+/* ---- responsive ---- */
+
+@media (max-width: 720px) {
+  .nav-toggle { display: flex; }
+  .nav-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    background: var(--paper-raised);
+    border-bottom: 1px solid var(--line);
+    flex-direction: column;
+    gap: 0;
+    display: none;
+  }
+  .nav-menu.open { display: flex; }
+  .nav-menu a { padding: 0.85rem 1.5rem; border-top: 1px solid var(--line); }
+  .topbar { position: relative; }
+}
+
+@media (max-width: 480px) {
+  .topbar { padding: 0.65rem 0.85rem; }
+  .brand-sub { font-size: 0.65rem; }
+  .crumb { padding: 0.7rem 0.85rem 0; }
+  #app { padding: 1rem 0.85rem 2.5rem; }
+  .foot { padding: 1rem 0.85rem; }
+  .nav-menu a { padding-inline: 0.85rem; }
+}
