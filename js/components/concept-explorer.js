@@ -13,10 +13,8 @@
     container.innerHTML = `
       <div class="layer-head">
         <div class="layer-eyebrow">Concept Explorer</div>
-        <h1>Cross-layer concepts</h1>
-        <p class="lede">Some topics — switching methods, topologies, how OSI maps
-        to TCP/IP — cut across multiple layers. Rather than force them into one
-        layer, they live here.</p>
+        <h1>Learn networking concepts</h1>
+        <p class="lede">Start with network size, then explore how networks are arranged and move data. Follow the cards in order or open any topic.</p>
       </div>
 
       <div class="concept-grid">
@@ -26,12 +24,11 @@
   }
 
   const CONCEPT_LINKS = {
-    'circuit-switching': { href: '#/sim/network/switching-concepts', label: 'Open switching simulation' },
-    'message-switching': { href: '#/sim/network/switching-concepts', label: 'Open switching simulation' },
-    'packet-switching': { href: '#/sim/network/switching-concepts', label: 'Open switching simulation' },
+    'switching-concepts': { href: '#/sim/network/switching-concepts', label: 'Open switching simulation' },
     'topologies': { href: '#/concept/topologies', label: 'Open simulation' },
     'network-types': { href: '#/concept/network-types', label: 'Open simulation' },
-    'osi-vs-tcpip': { href: '#/concept/osi-vs-tcpip', label: 'Open simulation' }
+    'osi-vs-tcpip': { href: '#/concept/osi-vs-tcpip', label: 'Open simulation' },
+    'encapsulation-concept': { href: '#/concept/encapsulation-concept', label: 'Open walkthrough' }
   };
 
   function conceptCardHTML(concept) {

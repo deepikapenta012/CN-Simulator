@@ -188,22 +188,10 @@
 
   const CONCEPTS = [
     {
-      id: 'circuit-switching',
-      name: 'Circuit Switching',
-      desc: 'A dedicated path is reserved for the whole session, as in traditional telephony.',
-      layers: ['Physical', 'Network']
-    },
-    {
-      id: 'message-switching',
-      name: 'Message Switching',
-      desc: 'Whole messages are stored and forwarded hop-by-hop with no dedicated path.',
-      layers: ['Network']
-    },
-    {
-      id: 'packet-switching',
-      name: 'Packet Switching',
-      desc: 'Data is split into packets that may take independent paths to the destination.',
-      layers: ['Network', 'Data Link']
+      id: 'network-types',
+      name: 'Network Types',
+      desc: 'Scale-based classification: PAN, LAN, MAN, WAN.',
+      layers: ['Cross-cutting']
     },
     {
       id: 'topologies',
@@ -212,16 +200,10 @@
       layers: ['Physical']
     },
     {
-      id: 'network-types',
-      name: 'Network Types',
-      desc: 'Scale-based classification: PAN, LAN, MAN, WAN.',
-      layers: ['Cross-cutting']
-    },
-    {
-      id: 'protocols-standards',
-      name: 'Protocols & Standards',
-      desc: 'How rules for communication get defined and standardized by bodies like IEEE and IETF.',
-      layers: ['Cross-cutting']
+      id: 'switching-concepts',
+      name: 'Switching Methods',
+      desc: 'Compare circuit, message, and packet switching in one walkthrough: reserved paths, whole-message store-and-forward, and packet-by-packet delivery.',
+      layers: ['Network', 'Data Link']
     },
     {
       id: 'osi-vs-tcpip',
@@ -232,14 +214,8 @@
     {
       id: 'encapsulation-concept',
       name: 'Encapsulation / Decapsulation',
-      desc: 'How each layer wraps the layer above it in its own header on the way down, and unwraps on the way up.',
+      desc: 'Follow application data as each OSI layer adds its header on the sender, then watch the receiver remove those headers in reverse order.',
       layers: ['All layers']
-    },
-    {
-      id: 'network-security',
-      name: 'Network Security',
-      desc: 'Threats and defenses that span multiple layers, from link-layer spoofing to application-layer attacks.',
-      layers: ['Cross-cutting']
     }
   ];
 
