@@ -2,8 +2,8 @@
    NetSim — osi-model.js
    Static data describing the 7 OSI layers and the syllabus mapped onto them,
    plus the cross-layer Concept Explorer entries (section 5 of the brief).
-   Simulation "status" is 'placeholder' for everything not yet implemented —
-   the brief asks us to scaffold cards now and wire in real logic later.
+   Simulation status is 'available' for entries with a registered interactive
+   implementation.
    ========================================================================== */
 
 (function (NetSim) {
@@ -25,11 +25,11 @@
         { title: 'Network Management', simulationIds: ['snmp'] }
       ],
       simulations: [
-        { id: 'dns', name: 'DNS Resolution', tag: 'name lookup', desc: 'Walk through recursive resolution from a hostname down to an IP address.', status: 'placeholder' },
-        { id: 'http', name: 'HTTP Request/Response', tag: 'application', desc: 'Trace a request and response cycle between client and server.', status: 'placeholder' },
-        { id: 'ftp', name: 'FTP Transfer', tag: 'file transfer', desc: 'Control and data channel handshake for a file transfer session.', status: 'placeholder' },
-        { id: 'smtp', name: 'SMTP Delivery', tag: 'mail', desc: 'Step through mail submission between client and mail server.', status: 'placeholder' },
-        { id: 'snmp', name: 'SNMP Polling', tag: 'management', desc: 'Manager-agent polling for device status and traps.', status: 'placeholder' }
+        { id: 'dns', name: 'DNS Resolution', tag: 'name lookup', desc: 'Walk through recursive resolution from a hostname down to an IP address.', status: 'available' },
+        { id: 'http', name: 'HTTP Request/Response', tag: 'application', desc: 'Trace a request and response cycle between client and server.', status: 'available' },
+        { id: 'ftp', name: 'FTP Transfer', tag: 'file transfer', desc: 'Control and data channel handshake for a file transfer session.', status: 'available' },
+        { id: 'smtp', name: 'SMTP Delivery', tag: 'mail', desc: 'Step through mail submission between client and mail server.', status: 'available' },
+        { id: 'snmp', name: 'SNMP Polling', tag: 'management', desc: 'Manager-agent polling for device status and traps.', status: 'available' }
       ]
     },
     {
@@ -45,9 +45,9 @@
         { title: 'Data Compression', simulationIds: ['compression'] }
       ],
       simulations: [
-        { id: 'encoding', name: 'Character Encoding', tag: 'representation', desc: 'Compare how text is represented across ASCII, UTF-8 and UTF-16.', status: 'placeholder' },
-        { id: 'encryption', name: 'Encryption / Decryption', tag: 'security', desc: 'Visualize a symmetric cipher turning plaintext into ciphertext.', status: 'placeholder' },
-        { id: 'compression', name: 'Compression Basics', tag: 'efficiency', desc: 'See run-length or Huffman-style compression shrink a payload.', status: 'placeholder' }
+        { id: 'encoding', name: 'Character Encoding', tag: 'representation', desc: 'Compare how text is represented across UTF-8 and UTF-16.', status: 'available' },
+        { id: 'encryption', name: 'Encryption / Decryption', tag: 'security', desc: 'Visualize a repeating-key XOR teaching cipher transforming plaintext.', status: 'available' },
+        { id: 'compression', name: 'Compression Basics', tag: 'efficiency', desc: 'See run-length encoding shrink repeated text and expand irregular text.', status: 'available' }
       ]
     },
     {

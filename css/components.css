@@ -308,6 +308,65 @@ body.compact-cards .sim-list-item { padding: 0.45rem 0.7rem; gap: 0.6rem; }
   color: var(--ink-faint);
 }
 
+/* Lifted cards and controls give the learning catalog a tactile feel. */
+.sim-card, .concept-card {
+  position: relative;
+  isolation: isolate;
+  transform: perspective(900px) rotateX(1.2deg) rotateY(-0.7deg) translateY(-1px);
+  transform-style: preserve-3d;
+  border-color: #D5E1F0;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #FFFFFF 0%, #FFFFFF 62%, #F1F6FF 100%);
+  box-shadow: 0 2px 0 #D0DDEE, 0 7px 13px rgba(24, 48, 86, 0.09), 0 15px 24px rgba(24, 48, 86, 0.05);
+  transition: transform 220ms cubic-bezier(.2,.8,.2,1), box-shadow 220ms ease, border-color 180ms ease;
+}
+.sim-card::before, .concept-card::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 1px 1px auto;
+  height: 42%;
+  border-radius: 11px 11px 45% 45%;
+  background: linear-gradient(180deg, rgba(255,255,255,.82), rgba(255,255,255,0));
+  pointer-events: none;
+}
+.sim-card:hover, .concept-card:hover {
+  transform: perspective(900px) rotateX(0deg) rotateY(0deg) translateY(-7px) scale(1.012);
+  border-color: #9BB9F7;
+  box-shadow: 0 3px 0 #B7C9E8, 0 16px 25px rgba(24, 48, 86, 0.16), 0 26px 38px rgba(49, 92, 244, 0.09);
+}
+.btn {
+  border: 1px solid #254BE0;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #4773FF 0%, #315CF4 100%);
+  box-shadow: 0 3px 0 #2146C7, 0 6px 12px rgba(49, 92, 244, 0.18);
+  transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease;
+}
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 0 #2146C7, 0 10px 18px rgba(49, 92, 244, 0.24);
+  filter: saturate(1.08);
+}
+.btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #2146C7, 0 2px 5px rgba(49, 92, 244, 0.18);
+}
+.btn.secondary {
+  border-color: #C4D4EF;
+  background: linear-gradient(180deg, #FFFFFF 0%, #F1F6FF 100%);
+  box-shadow: 0 2px 0 #D6E1F1, 0 4px 10px rgba(24, 48, 86, 0.07);
+}
+.btn.secondary:hover { box-shadow: 0 4px 0 #D6E1F1, 0 8px 14px rgba(24, 48, 86, 0.12); }
+.osi-stack { overflow: hidden; border: 1px solid #D2DEED; border-radius: 14px; box-shadow: 0 12px 28px rgba(24, 48, 86, 0.1); }
+.osi-layer { transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease; }
+.osi-layer.is-selected { box-shadow: inset 4px 0 #8CB4FF, 0 5px 14px rgba(49, 92, 244, 0.2); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sim-card, .concept-card, .btn, .osi-layer { transition: none; }
+  .sim-card, .concept-card, .sim-card:hover, .concept-card:hover,
+  .btn:hover, .btn:active { transform: none; }
+}
+
 /* ---- encapsulation view: two 7-layer stacks connected at Physical ---- */
 
 .encap3-wrap {

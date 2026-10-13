@@ -188,3 +188,55 @@ code, .mono { font-family: var(--f-mono); }
   .foot { padding: 1rem 0.85rem; }
   .nav-menu a { padding-inline: 0.85rem; }
 }
+
+/* NetSim blue workspace theme: navy navigation with crisp blue accents and
+   cool, bright learning surfaces. Components consume these shared tokens. */
+:root {
+  color-scheme: light;
+  --paper: #EEF4FC;
+  --paper-raised: #FFFFFF;
+  --ink: #111827;
+  --ink-soft: #46556B;
+  --ink-faint: #73839A;
+  --line: #D8E2F0;
+  --line-strong: #B8C8DE;
+  --accent: #315CF4;
+  --accent-soft: #DCE8FF;
+  --accent-ink: #FFFFFF;
+  --teal: #087EAE;
+  --teal-soft: #D9F1FA;
+  --ok: #1B9B70;
+  --warn: #B7791F;
+  --err: #D04452;
+  --radius: 8px;
+}
+
+html { background: var(--paper); }
+body {
+  background:
+    radial-gradient(ellipse at 8% 3%, rgba(100, 154, 255, 0.10), transparent 30rem),
+    radial-gradient(ellipse at 96% 25%, rgba(84, 188, 235, 0.08), transparent 28rem),
+    var(--paper);
+  background-attachment: fixed;
+}
+.topbar {
+  background: #0B1422;
+  border-bottom-color: #24344B;
+  color: #F8FAFF;
+  box-shadow: 0 5px 18px rgba(5, 15, 30, 0.2);
+}
+.brand, .nav-menu a { color: #E8F0FF; }
+.brand-mark { border-color: #4EA7FF; color: #61B8FF; }
+.brand-sub { color: #A5B4C9; }
+.nav-menu a.active { color: #78AEFF; }
+.nav-menu a:hover { color: #FFFFFF; }
+.nav-toggle { border-color: #41516A; }
+.nav-toggle span { background: #E8F0FF; }
+.crumb { color: #64748B; }
+.crumb a, a { color: #2458DB; }
+.foot { background: #0B1422; border-top-color: #24344B; color: #A5B4C9; }
+
+@media (max-width: 720px) {
+  .nav-menu { background: #0B1422; border-bottom-color: #24344B; }
+  .nav-menu a { border-top-color: #24344B; }
+}
