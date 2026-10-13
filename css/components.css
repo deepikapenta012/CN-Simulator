@@ -382,6 +382,31 @@ body.compact-cards .sim-list-item { padding: 0.45rem 0.7rem; gap: 0.6rem; }
 .encap-medium small { font-size: 0.62rem; }
 .encap-walk-note { margin: 1rem 0 0; padding-top: 0.75rem; border-top: 1px solid var(--line); font-size: 0.82rem; }
 @media (max-width: 620px) { .encap-walk-flow { grid-template-columns: 1fr; } .encap-medium { padding: 0.25rem; } }
+.pdu-transform { display: grid; grid-template-columns: minmax(0, 1fr) 110px minmax(0, 1fr); gap: 0.6rem; align-items: center; }
+.pdu-stage { min-width: 0; }
+.pdu-stage-label { display: block; min-height: 2rem; color: var(--ink-faint); font: 0.65rem var(--f-mono); }
+.pdu-box { border: 1px solid var(--line-strong); background: var(--paper); }
+.pdu-title { display: flex; justify-content: space-between; gap: 0.4rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--line); font-size: 0.72rem; }
+.pdu-title span { color: var(--ink-faint); font: 0.65rem var(--f-mono); }
+.pdu-fields { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.35rem; }
+.pdu-field { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.4rem; border: 1px solid var(--line); background: var(--paper-raised); }
+.pdu-field b { font: 600 0.63rem var(--f-mono); }
+.pdu-field span { overflow-wrap: anywhere; font-size: 0.72rem; }
+.pdu-field.header { border-color: var(--accent); background: var(--accent-soft); }
+.pdu-field.trailer { border-color: var(--teal); }
+.pdu-bits { display: flex; flex-direction: column; gap: 0.45rem; min-height: 5rem; justify-content: center; padding: 0.7rem; border: 1px solid var(--accent); background: var(--accent-soft); }
+.pdu-bits b { font-size: 0.72rem; }
+.pdu-bits code { overflow-wrap: anywhere; font: 0.7rem var(--f-mono); }
+.pdu-bits small { color: var(--ink-faint); font-size: 0.65rem; }
+.pdu-transform-arrow { display: flex; flex-direction: column; align-items: center; color: var(--accent); text-align: center; font-size: 1.5rem; }
+.pdu-transform-arrow span { color: var(--ink-faint); font: 0.62rem var(--f-mono); }
+.encap-layer-track { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.2rem; margin-top: 1rem; }
+.encap-layer-step { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.35rem 0.25rem; border: 1px solid var(--line); background: var(--paper); }
+.encap-layer-step b { font-size: 0.62rem; }
+.encap-layer-step span { color: var(--ink-faint); font: 0.58rem var(--f-mono); }
+.encap-layer-step.active { border-color: var(--accent); background: var(--accent-soft); }
+.encap-layer-step.done { border-color: var(--teal); }
+@media (max-width: 620px) { .pdu-transform { grid-template-columns: 1fr; } .pdu-transform-arrow { transform: rotate(90deg); padding: 0.2rem; } .encap-layer-track { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 .encap3-connector { flex: none; width: 2px; height: 0.5rem; background: var(--line-strong); align-self: center; }
 .encap3-connector.is-active { background: var(--teal); width: 3px; }

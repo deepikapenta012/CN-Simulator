@@ -300,6 +300,16 @@
 .nettype-hub { fill: var(--ink); }
 .nettype-label { font-family: var(--f-mono); font-size: 11px; fill: var(--ink-faint); letter-spacing: 0.03em; }
 
+.network-types-table-wrap { border: 1px solid var(--line); background: var(--paper-raised); padding: 1rem; }
+.network-types-table-wrap h2 { margin: 0 0 0.75rem; font: 700 1rem var(--f-display); }
+.network-types-table-scroll { overflow-x: auto; }
+.network-types-table { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
+.network-types-table th, .network-types-table td { padding: 0.55rem 0.45rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.network-types-table thead th { color: var(--ink-faint); font: 600 0.65rem var(--f-mono); text-transform: uppercase; }
+.network-types-table tbody th { color: var(--accent); font-family: var(--f-mono); }
+.network-types-table tbody tr:last-child th, .network-types-table tbody tr:last-child td { border-bottom: 0; }
+.topology-table { min-width: 480px; }
+
 /* ---- protocols & standards matching ---- */
 
 .proto-mount { width: 100%; }
