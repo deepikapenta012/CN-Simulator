@@ -11,27 +11,31 @@
   'use strict';
 
   const NODES = ['R1', 'R2', 'R3', 'R4', 'R5'];
-  const LINKS = [
-    { a: 'R1', b: 'R2', cost: 2 },
-    { a: 'R1', b: 'R3', cost: 5 },
-    { a: 'R2', b: 'R3', cost: 1 },
-    { a: 'R2', b: 'R4', cost: 4 },
-    { a: 'R3', b: 'R4', cost: 1 },
-    { a: 'R3', b: 'R5', cost: 7 },
-    { a: 'R4', b: 'R5', cost: 3 }
+  const LINK_PAIRS = [
+    { a: 'R1', b: 'R2' },
+    { a: 'R1', b: 'R3' },
+    { a: 'R2', b: 'R3' },
+    { a: 'R2', b: 'R4' },
+    { a: 'R3', b: 'R4' },
+    { a: 'R3', b: 'R5' },
+    { a: 'R4', b: 'R5' }
   ];
+  function randomLinks() {
+    return LINK_PAIRS.map(function (pair) {
+      return { a: pair.a, b: pair.b, cost: Math.floor(Math.random() * 9) + 1 };
+    });
+  }
 
-  function neighborsOf(node) {
+  function neighborsOf(node, links) {
     const out = [];
-    LINKS.forEach((l) => {
+    links.forEach((l) => {
       if (l.a === node) out.push({ node: l.b, cost: l.cost });
       if (l.b === node) out.push({ node: l.a, cost: l.cost });
     });
     return out;
   }
 
-  /** Real Dijkstra, with a trace of every selection and relaxation. */
-  function dijkstraTraced(source) {
+  function dijkstraTraced(source, links) {
     const dist = {}, prev = {}, visited = new Set();
     NODES.forEach((n) => { dist[n] = n === source ? 0 : Infinity; prev[n] = null; });
     const trace = [];
@@ -41,7 +45,7 @@
       if (dist[u] === Infinity) break;
       visited.add(u);
       trace.push({ type: 'select', node: u, dist: dist[u] });
-      neighborsOf(u).forEach(({ node: v, cost: c }) => {
+      neighborsOf(u, links).forEach(({ node: v, cost: c }) => {
         if (visited.has(v)) return;
         const candidate = dist[u] + c;
         if (candidate < dist[v]) {
@@ -60,12 +64,13 @@
     let timer = null;
     let host = null;
     let result = null;
+    let currentLinks = randomLinks();
 
     function buildPhases() {
-      result = dijkstraTraced(source);
+      result = dijkstraTraced(source, currentLinks);
       const p = [];
       NODES.forEach((n) => {
-        const links = neighborsOf(n).map((nb) => nb.node + ':' + nb.cost).join(', ');
+        const links = neighborsOf(n, currentLinks).map((nb) => nb.node + ':' + nb.cost).join(', ');
         p.push({ text: n + ' floods its link state: {' + links + '}', view: 'flood' });
       });
       p.push({ text: 'All routers now hold an identical, complete map of the topology.', view: 'complete', level: 'success' });
@@ -134,10 +139,11 @@
     function rebuild() {
       stop();
       index = -1;
+      currentLinks = randomLinks();
       phases = buildPhases();
       renderParams();
       draw();
-      ctx.log('Ready \u2014 5 routers about to flood their link state, then compute shortest paths from ' + source + '.');
+      ctx.log('Ready \u2014 5 routers with randomized link costs, computing shortest paths from ' + source + '.');
     }
 
     function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }

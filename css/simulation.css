@@ -715,6 +715,56 @@
   .mac-topo-link.is-active, .aloha-link.is-sending, .aloha-link.is-collision { animation: none; }
 }
 
+/* ---- ALOHA Gantt chart timeline ---- */
+.aloha-gantt-wrap {
+  overflow-x: auto; overscroll-behavior-x: contain;
+  margin: 0.75rem 0 0; padding: 0.5rem;
+  border: 1px solid var(--line); border-radius: 6px;
+  background: var(--paper);
+}
+.aloha-gantt {
+  display: flex; flex-direction: column; gap: 2px;
+  min-width: max-content;
+}
+.aloha-gantt-row {
+  display: flex; gap: 2px; align-items: stretch;
+}
+.aloha-gantt-label {
+  width: 28px; min-width: 28px;
+  display: flex; align-items: center; justify-content: center;
+  font: 700 0.7rem var(--f-mono); color: var(--ink-soft);
+}
+.aloha-gantt-cell {
+  flex: 1; min-width: 24px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 3px; font: 600 0.62rem var(--f-mono);
+  background: var(--paper-raised); color: var(--ink-faint);
+  border: 1px solid transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+.aloha-gantt-hcell {
+  background: transparent; color: var(--ink-faint);
+  font: 500 0.58rem var(--f-mono); height: 16px;
+}
+.aloha-gantt-cell.is-current {
+  border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent);
+}
+.aloha-gantt-cell.is-idle {
+  background: hsl(0 0% 50% / 0.08); color: var(--ink-faint);
+}
+.aloha-gantt-cell.is-success {
+  background: hsl(152 60% 44% / 0.22); color: hsl(152 60% 28%);
+  border-color: hsl(152 60% 44% / 0.4);
+}
+.aloha-gantt-cell.is-collision {
+  background: hsl(0 72% 55% / 0.18); color: hsl(0 72% 38%);
+  border-color: hsl(0 72% 55% / 0.35);
+}
+.aloha-gantt-summary .aloha-gantt-cell { font-size: 0.72rem; height: 20px; }
+.aloha-gantt-summary .aloha-gantt-label {
+  font-size: 0.6rem; color: var(--ink-faint);
+}
+
 /* Sender/receiver timing diagrams for flow-control protocols. */
 .timing-diagram-scroll { width: 100%; max-height: min(58vh, 520px); overflow: auto; overscroll-behavior: contain; }
 .timing-diagram { display: block; width: 520px; min-width: 520px; max-width: none; }

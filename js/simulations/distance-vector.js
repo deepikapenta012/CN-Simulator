@@ -11,12 +11,17 @@
   'use strict';
 
   const NODES = ['A', 'B', 'C', 'D', 'E'];
-  const BASE_LINKS = [
-    { a: 'A', b: 'B', cost: 1 },
-    { a: 'B', b: 'C', cost: 1 },
-    { a: 'C', b: 'D', cost: 1 },
-    { a: 'D', b: 'E', cost: 1 }
+  const LINK_PAIRS = [
+    { a: 'A', b: 'B' },
+    { a: 'B', b: 'C' },
+    { a: 'C', b: 'D' },
+    { a: 'D', b: 'E' }
   ];
+  function randomLinks() {
+    return LINK_PAIRS.map(function (pair) {
+      return { a: pair.a, b: pair.b, cost: Math.floor(Math.random() * 7) + 1 };
+    });
+  }
   const INFINITY_CAP = 16; // RIP-style "infinity" — stops counting up forever
   const MAX_ROUNDS = 40;
 
@@ -85,31 +90,33 @@
     let index = -1;
     let timer = null;
     let host = null;
+    let currentLinks = randomLinks();
 
     function buildRounds() {
+      const baseLinks = currentLinks;
       const out = [];
       let { table, nextHop } = initTable();
-      out.push({ text: 'Initial state: every router only knows itself. Everything else is unreachable (\u221e).', table, nextHop, links: BASE_LINKS, changes: [] });
+      out.push({ text: 'Initial state: every router only knows itself. Everything else is unreachable (\u221e).', table, nextHop, links: baseLinks, changes: [] });
 
       let round = 0, converged = false;
       while (round < MAX_ROUNDS && !converged) {
         round += 1;
-        const next = computeRound(BASE_LINKS, table, nextHop, poisonReverse);
+        const next = computeRound(baseLinks, table, nextHop, poisonReverse);
         const changes = diffTables(table, next.table);
         table = next.table; nextHop = next.nextHop;
         if (changes.length === 0) {
-          out.push({ text: 'No changes \u2014 the network has converged after ' + (round - 1) + ' round(s).', table, nextHop, links: BASE_LINKS, changes: [], level: 'success', converged: true });
+          out.push({ text: 'No changes \u2014 the network has converged after ' + (round - 1) + ' round(s).', table, nextHop, links: baseLinks, changes: [], level: 'success', converged: true });
           converged = true;
         } else {
           out.push({
             text: 'Round ' + round + ': ' + changes.length + ' update(s) \u2014 ' + changes.slice(0, 3).map((c) => c.node + '\u2192' + c.dest + ': ' + fmtDist(c.from) + ' \u2192 ' + fmtDist(c.to) + ' via ' + nextHop[c.node][c.dest]).join('; ') + (changes.length > 3 ? '; ...' : ''),
-            table, nextHop, links: BASE_LINKS, changes
+            table, nextHop, links: baseLinks, changes
           });
         }
       }
 
       if (simulateFailure) {
-        const failedLinks = BASE_LINKS.filter((l) => !(l.a === 'A' && l.b === 'B'));
+        const failedLinks = baseLinks.filter((l) => !(l.a === 'A' && l.b === 'B'));
         out.push({ text: 'Link A\u2013B fails. A is cut off from the rest of the network.', table, nextHop, links: failedLinks, changes: [], level: 'warning', linkFailed: true });
 
         round = 0; converged = false;
@@ -204,10 +211,12 @@
     function rebuild() {
       stop();
       index = -1;
+      currentLinks = randomLinks();
       rounds = buildRounds();
       renderParams();
       draw();
-      ctx.log('Ready \u2014 5 routers (A\u2013B\u2013C\u2013D\u2013E) about to exchange distance vectors.');
+      const costsStr = currentLinks.map(function (l) { return l.a + '\u2013' + l.b + ':' + l.cost; }).join(', ');
+      ctx.log('Ready \u2014 5 routers (A\u2013B\u2013C\u2013D\u2013E) with link costs [' + costsStr + '].');
     }
 
     function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }

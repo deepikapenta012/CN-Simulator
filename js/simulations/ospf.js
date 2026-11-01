@@ -10,8 +10,13 @@
   'use strict';
 
   // Area 1: A1, A2, ABR. Area 2: B1, B2, ABR.
-  const AREA1_LINKS = [{ a: 'A1', b: 'A2', cost: 3 }, { a: 'A1', b: 'ABR', cost: 2 }, { a: 'A2', b: 'ABR', cost: 4 }];
-  const AREA2_LINKS = [{ a: 'B1', b: 'B2', cost: 3 }, { a: 'ABR', b: 'B1', cost: 2 }, { a: 'ABR', b: 'B2', cost: 5 }];
+  function randomAreaLinks() {
+    function rc() { return Math.floor(Math.random() * 7) + 1; }
+    return {
+      area1: [{ a: 'A1', b: 'A2', cost: rc() }, { a: 'A1', b: 'ABR', cost: rc() }, { a: 'A2', b: 'ABR', cost: rc() }],
+      area2: [{ a: 'B1', b: 'B2', cost: rc() }, { a: 'ABR', b: 'B1', cost: rc() }, { a: 'ABR', b: 'B2', cost: rc() }]
+    };
+  }
 
   function neighborsOf(node, links) {
     const out = [];
@@ -36,18 +41,25 @@
     let index = -1;
     let timer = null;
     let host = null;
+    let currentArea = randomAreaLinks();
 
     function buildPhases() {
+      const AREA1_LINKS = currentArea.area1;
+      const AREA2_LINKS = currentArea.area2;
       const distFromAbrInArea1 = shortestFrom('ABR', ['A1', 'A2', 'ABR'], AREA1_LINKS);
       const distFromAbrInArea2 = shortestFrom('ABR', ['B1', 'B2', 'ABR'], AREA2_LINKS);
-      const area1Cost = Math.max(distFromAbrInArea1.A1, distFromAbrInArea1.A2); // summarized as the worst-case reach
+      const area1Cost = Math.max(distFromAbrInArea1.A1, distFromAbrInArea1.A2);
       const area2Cost = Math.max(distFromAbrInArea2.B1, distFromAbrInArea2.B2);
 
+      const a1Links = AREA1_LINKS.map(function (l) { return l.a + '\u2013' + l.b + ':' + l.cost; }).join(', ');
+      const a2Links = AREA2_LINKS.map(function (l) { return l.a + '\u2013' + l.b + ':' + l.cost; }).join(', ');
+
+
       return [
-        { text: 'Area 1 routers (A1, A2, ABR) flood LSAs \u2014 but only within Area 1.', view: 'flood1' },
-        { text: 'Every router in Area 1 now has Area 1\u2019s full topology: A1\u2013A2 cost 3, A1\u2013ABR cost 2, A2\u2013ABR cost 4.', view: 'topo1' },
-        { text: 'Area 2 routers (B1, B2, ABR) flood LSAs \u2014 only within Area 2.', view: 'flood2' },
-        { text: 'Every router in Area 2 now has Area 2\u2019s full topology: B1\u2013B2 cost 3, ABR\u2013B1 cost 2, ABR\u2013B2 cost 5.', view: 'topo2' },
+        { text: 'Area 1 routers (A1, A2, ABR) flood LSAs \u2014 but only within Area 1. Links: ' + a1Links + '.', view: 'flood1' },
+        { text: 'Every router in Area 1 now has Area 1\u2019s full topology.', view: 'topo1' },
+        { text: 'Area 2 routers (B1, B2, ABR) flood LSAs \u2014 only within Area 2. Links: ' + a2Links + '.', view: 'flood2' },
+        { text: 'Every router in Area 2 now has Area 2\u2019s full topology.', view: 'topo2' },
         { text: 'The ABR computes its own real distance to every network inside Area 1 (A1: ' + distFromAbrInArea1.A1 + ', A2: ' + distFromAbrInArea1.A2 + ').', view: 'compute1' },
         { text: 'Instead of flooding Area 1\u2019s internal topology into the backbone, the ABR injects one Summary LSA: "Area 1 reachable at cost \u2248 ' + area1Cost + '."', view: 'summary1', level: 'success' },
         { text: 'The same happens in reverse: the ABR summarizes Area 2 as reachable at cost \u2248 ' + area2Cost + ' and advertises it into Area 1.', view: 'summary2', level: 'success' },
@@ -93,10 +105,11 @@
     function rebuild() {
       stop();
       index = -1;
+      currentArea = randomAreaLinks();
       phases = buildPhases();
       ctx.params.hidden = true;
       draw();
-      ctx.log('Ready \u2014 two OSPF areas about to flood internally, then summarize across the backbone.');
+      ctx.log('Ready \u2014 two OSPF areas with randomized costs about to flood internally, then summarize across the backbone.');
     }
 
     function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }

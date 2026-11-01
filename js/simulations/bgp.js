@@ -9,7 +9,15 @@
 (function (NetSim) {
   'use strict';
 
-  const PREFIX = '203.0.113.0/24';
+  function randomPrefix() {
+    const octets = [
+      [10, 172, 192, 198, 203][Math.floor(Math.random() * 5)],
+      Math.floor(Math.random() * 256),
+      Math.floor(Math.random() * 256)
+    ];
+    const mask = [8, 16, 20, 24][Math.floor(Math.random() * 4)];
+    return octets[0] + '.' + octets[1] + '.' + octets[2] + '.0/' + mask;
+  }
 
   NetSim.SimRegistry.register('bgp', function factory(ctx) {
     let phases = [];
@@ -17,11 +25,12 @@
     let timer = null;
     let host = null;
     let routes = [];
+    let currentPrefix = randomPrefix();
 
     function buildPhases() {
       routes = [];
       const p = [];
-      p.push({ text: 'AS400 originates ' + PREFIX + ' and advertises it to AS300 with AS-PATH = [AS400].', view: 'origin' });
+      p.push({ text: 'AS400 originates ' + currentPrefix + ' and advertises it to AS300 with AS-PATH = [AS400].', view: 'origin' });
       p.push({ text: 'AS300 receives it, prepends its own AS number: AS-PATH = [AS300, AS400]. Advertises to AS100 and AS200.', view: 'as300' });
       p.push({ text: 'AS100 receives the route directly from AS300 \u2014 a candidate route with AS-PATH length 2.', view: 'route1', addRoute: { via: 'AS300 (direct)', path: ['AS300', 'AS400'] } });
       p.push({ text: 'AS200 receives from AS300, prepends its own AS: AS-PATH = [AS200, AS300, AS400]. Advertises to AS100.', view: 'as200' });
@@ -57,7 +66,7 @@
       `;
 
       ctx.setMetrics([
-        { label: 'Prefix', value: PREFIX },
+        { label: 'Prefix', value: currentPrefix },
         { label: 'Originating AS', value: 'AS400' },
         { label: 'Candidate Routes at AS100', value: String(routes.length) },
         { label: 'Selected Route', value: selected ? 'Via AS300 (AS-PATH length 2)' : 'Not yet selected' }
@@ -67,10 +76,11 @@
     function rebuild() {
       stop();
       index = -1;
+      currentPrefix = randomPrefix();
       phases = buildPhases();
       ctx.params.hidden = true;
       draw();
-      ctx.log('Ready \u2014 AS400 is about to originate ' + PREFIX + '.');
+      ctx.log('Ready \u2014 AS400 is about to originate ' + currentPrefix + '.');
     }
 
     function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }

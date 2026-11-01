@@ -23,12 +23,15 @@
 
     function stationName(id) { return String.fromCharCode(64 + id); }
 
-    function slotExplanation(stations, outcome) {
+    function slotLabel(t) { return mode === 'slotted' ? 'Time Slot ' + t : 'Slot ' + t; }
+
+    function slotExplanation(slotIdx, stations, outcome) {
       const names = stations.map(stationName);
-      if (!stations.length) return 'No station attempts in this slot, so the shared channel stays idle.';
-      if (outcome === 'success') return 'Station ' + names[0] + ' transmits alone on the shared channel; its frame succeeds.';
-      if (stations.length > 1) return 'Stations ' + names.join(' and ') + ' transmit together. Their frames collide; they retry after a random delay.';
-      return 'Station ' + names[0] + ' transmits, but its frame overlaps activity in a neighboring slot. It retries after a random delay.';
+      const label = slotLabel(slotIdx + 1);
+      if (!stations.length) return label + ': No station attempts' + (mode === 'slotted' ? ' in this time slot' : '') + ', the shared channel stays idle.';
+      if (outcome === 'success') return label + ': Station ' + names[0] + ' transmits alone' + (mode === 'slotted' ? ' during this time slot' : '') + '; its frame succeeds.';
+      if (stations.length > 1) return label + ': Stations ' + names.join(' and ') + ' transmit' + (mode === 'slotted' ? ' in the same time slot' : ' together') + '. Their frames collide; they retry after a random delay.';
+      return label + ': Station ' + names[0] + ' transmits, but its frame overlaps activity in a neighboring slot. It retries after a random delay.';
     }
 
     function networkSvg(active, outcome) {
@@ -64,16 +67,69 @@
       });
     }
 
+    function renderGantt(shown) {
+      if (shown === 0) return '';
+      let html = '<div class="aloha-gantt-wrap"><div class="aloha-gantt">';
+      // Header row with slot numbers
+      html += '<div class="aloha-gantt-row aloha-gantt-header"><div class="aloha-gantt-label"></div>';
+      for (let t = 0; t < totalSlots; t++) {
+        const revealed = t < shown;
+        html += '<div class="aloha-gantt-cell aloha-gantt-hcell' + (t === index ? ' is-current' : '') + '">' + (revealed ? (t + 1) : '') + '</div>';
+      }
+      html += '</div>';
+      // One row per station
+      for (let s = 1; s <= stationCount; s++) {
+        html += '<div class="aloha-gantt-row"><div class="aloha-gantt-label">' + stationName(s) + '</div>';
+        for (let t = 0; t < totalSlots; t++) {
+          if (t >= shown) {
+            html += '<div class="aloha-gantt-cell"></div>';
+            continue;
+          }
+          const active = attempts[t].includes(s);
+          const o = outcomes[t];
+          let cls = 'aloha-gantt-cell';
+          if (t === index) cls += ' is-current';
+          if (active) {
+            cls += o === 'success' ? ' is-success' : ' is-collision';
+          } else {
+            cls += ' is-idle';
+          }
+          const tip = (mode === 'slotted' ? 'Time Slot ' : 'Slot ') + (t + 1) + ': ' + (active ? (o === 'success' ? 'Success' : 'Collision') : 'Idle');
+          html += '<div class="' + cls + '" title="' + tip + '">' + (active ? stationName(s) : '') + '</div>';
+        }
+        html += '</div>';
+      }
+      // Channel summary row
+      html += '<div class="aloha-gantt-row aloha-gantt-summary"><div class="aloha-gantt-label">Ch.</div>';
+      for (let t = 0; t < totalSlots; t++) {
+        if (t >= shown) {
+          html += '<div class="aloha-gantt-cell"></div>';
+          continue;
+        }
+        const o = outcomes[t];
+        let cls = 'aloha-gantt-cell';
+        if (t === index) cls += ' is-current';
+        cls += o === 'success' ? ' is-success' : o === 'collision' ? ' is-collision' : ' is-idle';
+        const sym = o === 'success' ? '\u2713' : o === 'collision' ? '\u2717' : '\u00b7';
+        html += '<div class="' + cls + '">' + sym + '</div>';
+      }
+      html += '</div>';
+      html += '</div></div>';
+      return html;
+    }
+
     function draw() {
       const shown = Math.max(0, index + 1);
       const active = index >= 0 ? attempts[index] : [];
       const outcome = index >= 0 ? outcomes[index] : 'idle';
-      const explanation = index >= 0 ? slotExplanation(active, outcome) : 'Press Start or Step to see stations contend for one shared channel.';
+      const explanation = index >= 0 ? slotExplanation(index, active, outcome) : 'Press Start or Step to see stations contend for one shared channel.';
+      const slotUnitLabel = mode === 'slotted' ? 'Time Slot' : 'Slot';
       host.innerHTML = `
-        <p class="net-hint aloha-intro">${mode === 'pure' ? 'Pure' : 'Slotted'} ALOHA · ${stationCount} stations connect to one shared channel · Slot ${shown} / ${totalSlots}</p>
+        <p class="net-hint aloha-intro">${mode === 'pure' ? 'Pure' : 'Slotted'} ALOHA \u00b7 ${stationCount} stations connect to one shared channel \u00b7 ${slotUnitLabel} ${shown} / ${totalSlots}</p>
         <div class="aloha-network">${networkSvg(active, outcome)}</div>
+        ${renderGantt(shown)}
         <p class="aloha-event ${outcome === 'collision' && index >= 0 ? 'is-collision' : active.length && index >= 0 ? 'is-success' : ''}">${explanation}</p>
-        <p class="aloha-note">ALOHA does not listen before transmitting. If frames overlap, they collide and stations retry after a random delay. CSMA protocols sense a busy channel and wait.</p>
+        <p class="aloha-note">${mode === 'slotted' ? 'In Slotted ALOHA, time is divided into fixed-length time slots. Stations may only begin transmitting at the start of a slot boundary, which halves the vulnerable period compared to Pure ALOHA.' : 'ALOHA does not listen before transmitting. If frames overlap, they collide and stations retry after a random delay. CSMA protocols sense a busy channel and wait.'}</p>
       `;
       const seen = outcomes.slice(0, shown);
       const successes = seen.filter((o) => o === 'success').length;
@@ -81,7 +137,7 @@
       const totalAttempts = attempts.slice(0, shown).reduce((s, a) => s + a.length, 0);
       ctx.setMetrics([
         { label: 'Mode', value: mode === 'pure' ? 'Pure ALOHA' : 'Slotted ALOHA' },
-        { label: 'Slots Elapsed', value: shown + ' / ' + totalSlots },
+        { label: mode === 'slotted' ? 'Time Slots Elapsed' : 'Slots Elapsed', value: shown + ' / ' + totalSlots },
         { label: 'Successful Transmissions', value: String(successes) },
         { label: 'Collisions', value: String(collisions) },
         { label: 'Throughput', value: shown ? (successes / shown * 100).toFixed(0) + '%' : '\u2014' },
@@ -133,9 +189,10 @@
       const stations = attempts[index];
       const o = outcomes[index];
       const names = stations.map(stationName);
-      const text = o === 'idle' ? 'Slot ' + index + ': idle, no attempts.'
-        : o === 'success' ? 'Slot ' + index + ': Station ' + names[0] + ' transmitted successfully \u2713'
-        : 'Slot ' + index + ': collision involving ' + names.map((name) => 'Station ' + name).join(' and ') + ' \u2717';
+      const label = slotLabel(index + 1);
+      const text = o === 'idle' ? label + ': idle, no attempts.'
+        : o === 'success' ? label + ': Station ' + names[0] + ' transmitted successfully \u2713'
+        : label + ': collision involving ' + names.map((name) => 'Station ' + name).join(' and ') + ' \u2717';
       ctx.log(text, o === 'success' ? 'success' : o === 'collision' ? 'warning' : undefined);
       draw();
     }
