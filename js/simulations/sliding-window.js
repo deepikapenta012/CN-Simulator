@@ -34,34 +34,84 @@
       return out;
     }
 
-    function replayTo(i) {
-      sentSet = new Set();
-      ackedSet = new Set();
+    /**
+     * Replay state up to step i and return { base, sentSet, ackedSet,
+     * senderWindow, receiverWindow, receiverExpects }.
+     */
+    function replayState(i) {
+      const sSet = new Set();
+      const aSet = new Set();
       let base = 1;
       for (let k = 0; k <= i; k++) {
         const e = events[k];
         if (!e) continue;
-        if (e.type === 'send') sentSet.add(e.frame);
-        if (e.type === 'ack') { ackedSet.add(e.frame); base = e.frame + 1; }
+        if (e.type === 'send') sSet.add(e.frame);
+        if (e.type === 'ack') { aSet.add(e.frame); base = e.frame + 1; }
       }
-      return base;
+      const windowEnd = Math.min(base + windowSize - 1, totalFrames);
+      const senderWindow = [];
+      for (let f = base; f <= windowEnd; f++) {
+        senderWindow.push({ frame: f, status: aSet.has(f) ? 'acked' : sSet.has(f) ? 'sent' : 'pending' });
+      }
+      const receiverExpects = base;
+      const receiverWindow = [];
+      for (let f = base; f <= windowEnd; f++) {
+        receiverWindow.push({ frame: f, status: aSet.has(f) ? 'received' : 'waiting' });
+      }
+      return { base, sentSet: sSet, ackedSet: aSet, senderWindow, receiverWindow, receiverExpects, windowEnd };
+    }
+
+    /** Render the window strip for sender or receiver. */
+    function renderWindowStrip(label, windowFrames, totalF, side) {
+      let html = '<div class="sw-window-strip sw-window-strip--' + side + '">';
+      html += '<span class="sw-window-label">' + label + '</span>';
+      html += '<div class="sw-window-slots">';
+      for (let f = 1; f <= totalF; f++) {
+        const entry = windowFrames.find((w) => w.frame === f);
+        let cls = 'sw-slot';
+        if (entry) {
+          cls += ' sw-slot--in-window';
+          cls += ' sw-slot--' + entry.status;
+        } else {
+          cls += ' sw-slot--outside';
+        }
+        html += '<div class="' + cls + '" title="Frame ' + f + '">' + f + '</div>';
+      }
+      html += '</div></div>';
+      return html;
     }
 
     function draw() {
-      const base = replayTo(index);
-      const windowEnd = Math.min(base + windowSize - 1, totalFrames);
+      const state = replayState(index);
+      sentSet = state.sentSet;
+      ackedSet = state.ackedSet;
+
       const actions = events.slice(0, index + 1).flatMap((event) => event.type === 'send'
         ? [{ type: 'frame', label: 'F' + event.frame }]
         : event.type === 'ack' ? [{ type: 'ack', label: 'ACK' + event.frame }] : []);
+
+      const senderStrip = renderWindowStrip(
+        'Sender Window [' + state.base + '\u2013' + state.windowEnd + '] size=' + windowSize,
+        state.senderWindow, totalFrames, 'sender');
+      const receiverStrip = renderWindowStrip(
+        'Receiver (expects frame ' + state.receiverExpects + ')',
+        state.receiverWindow, totalFrames, 'receiver');
+
       host.innerHTML = `
-        <div class="net-hint" style="margin-bottom:0.6rem;">Window (highlighted): frames ${base <= totalFrames ? base + '\u2013' + windowEnd : 'none — all done'}</div>
+        <div class="sw-window-panel">${senderStrip}${receiverStrip}</div>
         ${NetSim.Components.renderTimingDiagram(actions, actions.length - 1)}
         <p class="timing-caption">Multiple frames may be in flight before cumulative ACKs slide the sender window.</p>
       `;
 
+      /* Scroll the timing diagram to the bottom so the latest step is visible. */
+      const scrollBox = host.querySelector('.timing-diagram-scroll');
+      if (scrollBox) scrollBox.scrollTop = scrollBox.scrollHeight;
+
       const sentCount = sentSet.size, ackedCount = ackedSet.size;
       ctx.setMetrics([
         { label: 'Window Size', value: String(windowSize) },
+        { label: 'Sender Window', value: state.base <= totalFrames ? 'F' + state.base + '\u2013F' + state.windowEnd : 'done' },
+        { label: 'Receiver Expects', value: state.base <= totalFrames ? 'Frame ' + state.receiverExpects : 'done' },
         { label: 'Frames Sent', value: sentCount + ' / ' + totalFrames },
         { label: 'Frames Acknowledged', value: ackedCount + ' / ' + totalFrames },
         { label: 'In Flight (unacked)', value: String(sentCount - ackedCount) },

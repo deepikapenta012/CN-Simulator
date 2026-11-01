@@ -163,7 +163,7 @@
       protocols: ['RS-232', 'DSL', 'Bluetooth'],
       simulationGroups: [
         { title: 'Signal Representation', simulationIds: ['analog-signals', 'digital-signals'] },
-        { title: 'Line Coding', simulationIds: ['unipolar', 'polar', 'polar-nrzi', 'polar-rz', 'manchester'] },
+        { title: 'Line Coding', simulationIds: ['unipolar', 'polar', 'polar-nrzi', 'polar-rz', 'manchester', 'differential-manchester'] },
         { title: 'Transmission Media', simulationIds: ['transmission-media'] },
         { title: 'Transmission Impairments', simulationIds: ['attenuation', 'noise', 'distortion'] },
         { title: 'Channel Capacity', simulationIds: ['nyquist-capacity', 'shannon-capacity'] }
@@ -181,7 +181,8 @@
         { id: 'distortion', name: 'Distortion', tag: 'signal shape', desc: 'See how frequency components changing unequally alter a transmitted waveform.', status: 'available' },
         { id: 'nyquist-capacity', name: 'Nyquist Bit-Rate Calculator', tag: 'noiseless channel capacity', desc: 'Calculate the Nyquist maximum bit rate from bandwidth and the number of discrete signal levels.', status: 'available' },
         { id: 'shannon-capacity', name: 'Shannon Channel-Capacity Calculator', tag: 'noisy channel capacity', desc: 'Calculate the Shannon capacity from bandwidth and signal-to-noise ratio.', status: 'available' },
-        { id: 'manchester', name: 'Manchester Encoding', tag: 'line coding', desc: 'Self-clocking line encoding via mid-bit transitions.', status: 'available' }
+        { id: 'manchester', name: 'Manchester Encoding', tag: 'line coding', desc: 'Self-clocking line encoding via mid-bit transitions.', status: 'available' },
+        { id: 'differential-manchester', name: 'Differential Manchester Encoding', tag: 'line coding', desc: 'Self-clocking, polarity-insensitive encoding using boundary transitions for data and mid-bit transitions for clock.', status: 'available' }
       ]
     }
   ];

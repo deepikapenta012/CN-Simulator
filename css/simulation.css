@@ -725,6 +725,64 @@
 .td-time-line, .td-tick { stroke: var(--ink-faint); }
 .timing-caption { margin: 0.5rem 0 0; color: var(--ink-faint); font-size: 0.76rem; }
 
+/* ---- sliding-window sender/receiver window strips ---- */
+.sw-window-panel {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;
+  margin-bottom: 1rem; padding: 0.75rem 0.8rem;
+  background: var(--paper-raised); border-radius: 8px;
+  border: 1px solid var(--line);
+}
+@media (max-width: 540px) {
+  .sw-window-panel { grid-template-columns: 1fr; }
+}
+.sw-window-strip { display: flex; flex-direction: column; gap: 0.3rem; }
+.sw-window-strip--sender { justify-self: start; }
+.sw-window-strip--receiver { justify-self: end; text-align: right; }
+.sw-window-strip--receiver .sw-window-slots { justify-content: flex-end; }
+.sw-window-label {
+  font: 600 0.72rem var(--f-display); color: var(--ink-soft);
+  letter-spacing: 0.03em; text-transform: uppercase;
+}
+.sw-window-slots { display: flex; gap: 3px; flex-wrap: wrap; }
+.sw-slot {
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 28px; border-radius: 4px;
+  font: 600 0.72rem var(--f-mono); color: var(--ink);
+  border: 2px solid var(--line); background: var(--paper);
+  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.15s;
+}
+/* In-window highlight (sender) */
+.sw-slot--in-window { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(99,102,241,0.15); }
+.sw-slot--pending { background: var(--paper); color: var(--ink-faint); }
+.sw-slot--sent, .sw-slot--resent {
+  background: hsl(217 80% 55% / 0.18); border-color: hsl(217 80% 55%); color: hsl(217 80% 42%);
+}
+.sw-slot--acked, .sw-slot--received {
+  background: hsl(152 60% 44% / 0.18); border-color: hsl(152 60% 44%); color: hsl(152 60% 30%);
+}
+.sw-slot--lost {
+  background: hsl(0 72% 55% / 0.15); border-color: hsl(0 72% 55%); color: hsl(0 72% 42%);
+  text-decoration: line-through;
+}
+.sw-slot--discarded {
+  background: hsl(32 90% 52% / 0.15); border-color: hsl(32 90% 52%); color: hsl(32 80% 38%);
+}
+.sw-slot--buffered {
+  background: hsl(270 55% 55% / 0.15); border-color: hsl(270 55% 55%); color: hsl(270 55% 38%);
+}
+.sw-slot--outside {
+  background: var(--paper); color: var(--ink-faint); border-color: var(--line);
+  opacity: 0.45;
+}
+.sw-slot--waiting {
+  background: var(--paper); color: var(--ink-faint); border-style: dashed;
+}
+
+/* Center timing diagram and caption inside simulation canvas */
+.timing-diagram-scroll { display: flex; justify-content: center; }
+.timing-caption { text-align: center; }
+
+
 /* ---- comparison table ---- */
 
 .compare-table {

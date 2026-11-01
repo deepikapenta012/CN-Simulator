@@ -27,13 +27,13 @@
         else if (f > L) out.push({ frame: f, text: 'Frame ' + f + ' arrives, but is out of order (expecting ' + L + ') \u2014 receiver discards it.', level: 'warning', state: 'discarded' });
         else out.push({ frame: f, text: 'Frame ' + f + ' arrives in order \u2014 receiver delivers it and sends ACK ' + f + '.', level: 'success', state: 'acked' });
       }
-      out.push({ text: 'Sender times out waiting for ACK ' + L + '.', level: 'warning' });
-      out.push({ text: 'Go-Back-N: sender retransmits every frame from ' + L + ' to ' + windowSize + ' \u2014 including ones already delivered.', level: 'warning' });
+      out.push({ text: 'Sender times out waiting for ACK ' + L + '.', level: 'warning', state: 'timeout' });
+      out.push({ text: 'Go-Back-N: sender retransmits every frame from ' + L + ' to ' + windowSize + ' \u2014 including ones already delivered.', level: 'warning', state: 'info' });
       for (let f = L; f <= windowSize; f++) {
         out.push({ frame: f, text: 'Sender retransmits frame ' + f + '.', state: 'resent' });
         out.push({ frame: f, text: 'Frame ' + f + ' arrives in order this time \u2014 receiver delivers it and sends ACK ' + f + '.', level: 'success', state: 'acked' });
       }
-      out.push({ text: 'All frames now delivered.', level: 'success' });
+      out.push({ text: 'All frames now delivered.', level: 'success', state: 'done' });
 
       stats = {
         discarded: windowSize - L,
@@ -43,29 +43,105 @@
       return out;
     }
 
-    function frameState(upToIndex) {
-      const state = {};
-      for (let i = 0; i <= upToIndex; i++) {
-        const e = events[i];
-        if (e && e.frame && e.state) state[e.frame] = e.state;
+    /**
+     * Replay full sender/receiver state up to index i.
+     * Returns { senderWindow, receiverWindow, senderBase, receiverExpects }
+     */
+    function replayState(i) {
+      const L = Math.min(lostFrame, windowSize);
+      const senderFrameState = {};   // frame -> 'sent' | 'lost' | 'acked' | 'resent'
+      const receiverFrameState = {}; // frame -> 'waiting' | 'received' | 'discarded' | 'buffered'
+      let senderBase = 1;
+      let receiverExpects = 1;
+      let timedOut = false;
+      let retransmitting = false;
+
+      for (let k = 0; k <= i; k++) {
+        const e = events[k];
+        if (!e) continue;
+        if (e.state === 'sent' || e.state === 'resent') {
+          senderFrameState[e.frame] = e.state;
+        }
+        if (e.state === 'lost') {
+          senderFrameState[e.frame] = 'lost';
+          receiverFrameState[e.frame] = 'lost';
+        }
+        if (e.state === 'discarded') {
+          receiverFrameState[e.frame] = 'discarded';
+        }
+        if (e.state === 'acked') {
+          senderFrameState[e.frame] = 'acked';
+          receiverFrameState[e.frame] = 'received';
+          senderBase = e.frame + 1;
+          receiverExpects = e.frame + 1;
+        }
+        if (e.state === 'timeout') timedOut = true;
+        if (e.state === 'info') retransmitting = true;
       }
-      return state;
+
+      const senderWindowEnd = Math.min(senderBase + windowSize - 1, windowSize);
+      const senderWindow = [];
+      for (let f = 1; f <= windowSize; f++) {
+        const inWindow = f >= senderBase && f <= senderWindowEnd;
+        senderWindow.push({ frame: f, status: senderFrameState[f] || (inWindow ? 'pending' : 'outside'), inWindow });
+      }
+
+      const receiverWindow = [];
+      for (let f = 1; f <= windowSize; f++) {
+        receiverWindow.push({ frame: f, status: receiverFrameState[f] || 'waiting' });
+      }
+
+      return { senderWindow, receiverWindow, senderBase, receiverExpects, senderWindowEnd };
+    }
+
+    function renderWindowStrip(label, frames, side) {
+      let html = '<div class="sw-window-strip sw-window-strip--' + side + '">';
+      html += '<span class="sw-window-label">' + label + '</span>';
+      html += '<div class="sw-window-slots">';
+      for (let i = 0; i < frames.length; i++) {
+        const f = frames[i];
+        let cls = 'sw-slot';
+        cls += ' sw-slot--' + f.status;
+        if (f.inWindow !== undefined && f.inWindow) cls += ' sw-slot--in-window';
+        html += '<div class="' + cls + '" title="Frame ' + f.frame + ' (' + f.status + ')">' + f.frame + '</div>';
+      }
+      html += '</div></div>';
+      return html;
     }
 
     function draw() {
+      const state = replayState(index);
+
       const actions = events.slice(0, index + 1).flatMap((event) => {
         if (event.state === 'sent' || event.state === 'resent') return [{ type: 'frame', label: 'F' + event.frame }];
         if (event.state === 'lost') return [{ type: 'frame', label: 'F' + event.frame, outcome: 'lost' }];
         if (event.state === 'discarded') return [{ type: 'discard', label: 'F' + event.frame + ' discarded' }];
         if (event.state === 'acked') return [{ type: 'frame', label: 'F' + event.frame }, { type: 'ack', label: 'ACK' + event.frame }];
-        if (event.text.startsWith('Sender times out')) return [{ type: 'timeout', label: 'timeout' }];
+        if (event.state === 'timeout') return [{ type: 'timeout', label: 'timeout' }];
         return [];
       });
-      host.innerHTML = `${NetSim.Components.renderTimingDiagram(actions, actions.length - 1)}
-        <p class="timing-caption">After a loss, Go-Back-N retransmits the lost frame and all later frames in the window.</p>`;
+
+      const senderStrip = renderWindowStrip(
+        'Sender Window [' + state.senderBase + '\u2013' + state.senderWindowEnd + '] size=' + windowSize,
+        state.senderWindow, 'sender');
+      const receiverStrip = renderWindowStrip(
+        'Receiver (expects frame ' + state.receiverExpects + ')',
+        state.receiverWindow, 'receiver');
+
+      host.innerHTML = `
+        <div class="sw-window-panel">${senderStrip}${receiverStrip}</div>
+        ${NetSim.Components.renderTimingDiagram(actions, actions.length - 1)}
+        <p class="timing-caption">After a loss, Go-Back-N retransmits the lost frame and all later frames in the window.</p>
+      `;
+
+      /* Scroll the timing diagram to the bottom so the latest step is visible. */
+      const scrollBox = host.querySelector('.timing-diagram-scroll');
+      if (scrollBox) scrollBox.scrollTop = scrollBox.scrollHeight;
 
       ctx.setMetrics([
         { label: 'Window Size', value: String(windowSize) },
+        { label: 'Sender Window', value: 'F' + state.senderBase + '\u2013F' + state.senderWindowEnd },
+        { label: 'Receiver Expects', value: 'Frame ' + state.receiverExpects },
         { label: 'Frame Lost', value: String(Math.min(lostFrame, windowSize)) },
         { label: 'Frames Discarded', value: String(stats.discarded) },
         { label: 'Frames Retransmitted', value: String(stats.retransmitted) },

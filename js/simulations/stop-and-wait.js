@@ -64,6 +64,10 @@
       });
       host.innerHTML = NetSim.Components.renderTimingDiagram(actions, actions.length - 1) + '<p class="timing-caption">Time moves from top to bottom. Frames travel sender → receiver; ACKs return receiver → sender.</p>';
 
+      /* Scroll the timing diagram to the bottom so the latest step is visible. */
+      const scrollBox = host.querySelector('.timing-diagram-scroll');
+      if (scrollBox) scrollBox.scrollTop = scrollBox.scrollHeight;
+
       const efficiency = stats.attempts ? (totalFrames / stats.attempts) * 100 : 100;
       ctx.setMetrics([
         { label: 'Total Frames', value: String(totalFrames) },

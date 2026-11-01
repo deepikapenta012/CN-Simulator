@@ -26,40 +26,124 @@
         else if (f > L) out.push({ frame: f, text: 'Frame ' + f + ' arrives out of order \u2014 receiver buffers it and sends ACK ' + f + ' anyway.', level: 'success', state: 'buffered' });
         else out.push({ frame: f, text: 'Frame ' + f + ' arrives in order \u2014 receiver delivers it and sends ACK ' + f + '.', level: 'success', state: 'acked' });
       }
-      out.push({ text: 'Sender times out waiting for ACK ' + L + '.', level: 'warning' });
-      out.push({ text: 'Selective Repeat: sender retransmits only frame ' + L + ' \u2014 the rest already arrived and are buffered.', level: 'success' });
+      out.push({ text: 'Sender times out waiting for ACK ' + L + '.', level: 'warning', state: 'timeout' });
+      out.push({ text: 'Selective Repeat: sender retransmits only frame ' + L + ' \u2014 the rest already arrived and are buffered.', level: 'success', state: 'info' });
       out.push({ frame: L, text: 'Sender retransmits frame ' + L + '.', state: 'resent' });
       out.push({ frame: L, text: 'Frame ' + L + ' arrives \u2014 receiver now has a contiguous run and delivers frame ' + L + ' plus all buffered frames after it.', level: 'success', state: 'acked' });
-      for (let f = L + 1; f <= windowSize; f++) out.push({ frame: f, text: 'Frame ' + f + ' (previously buffered) delivered in order.', level: 'success', state: 'acked' });
-      out.push({ text: 'All frames now delivered, in order.', level: 'success' });
+      for (let f = L + 1; f <= windowSize; f++) out.push({ frame: f, text: 'Frame ' + f + ' (previously buffered) delivered in order.', level: 'success', state: 'delivered' });
+      out.push({ text: 'All frames now delivered, in order.', level: 'success', state: 'done' });
 
       stats = { buffered: windowSize - L, retransmitted: 1, totalTx: windowSize + 1 };
       return out;
     }
 
-    function frameState(upToIndex) {
-      const state = {};
-      for (let i = 0; i <= upToIndex; i++) {
-        const e = events[i];
-        if (e && e.frame && e.state) state[e.frame] = e.state;
+    /**
+     * Replay full sender/receiver state up to index i.
+     */
+    function replayState(i) {
+      const L = Math.min(lostFrame, windowSize);
+      const senderFrameState = {};   // frame -> status string
+      const receiverFrameState = {}; // frame -> status string
+      let senderBase = 1;
+      let receiverExpects = 1;
+
+      for (let k = 0; k <= i; k++) {
+        const e = events[k];
+        if (!e) continue;
+        if (e.state === 'sent' || e.state === 'resent') {
+          senderFrameState[e.frame] = e.state;
+        }
+        if (e.state === 'lost') {
+          senderFrameState[e.frame] = 'lost';
+          receiverFrameState[e.frame] = 'lost';
+        }
+        if (e.state === 'buffered') {
+          receiverFrameState[e.frame] = 'buffered';
+          senderFrameState[e.frame] = 'acked'; // ACK was sent back for buffered
+        }
+        if (e.state === 'acked') {
+          senderFrameState[e.frame] = 'acked';
+          receiverFrameState[e.frame] = 'received';
+          // Recalculate senderBase: lowest unacked
+          let newBase = e.frame + 1;
+          while (newBase <= windowSize && senderFrameState[newBase] === 'acked') newBase++;
+          senderBase = newBase;
+          receiverExpects = newBase;
+        }
+        if (e.state === 'delivered') {
+          receiverFrameState[e.frame] = 'received';
+          senderFrameState[e.frame] = 'acked';
+          let newBase = e.frame + 1;
+          while (newBase <= windowSize && senderFrameState[newBase] === 'acked') newBase++;
+          senderBase = newBase;
+          receiverExpects = newBase;
+        }
       }
-      return state;
+
+      const senderWindowEnd = Math.min(senderBase + windowSize - 1, windowSize);
+      const senderWindow = [];
+      for (let f = 1; f <= windowSize; f++) {
+        const inWindow = f >= senderBase && f <= senderWindowEnd;
+        senderWindow.push({ frame: f, status: senderFrameState[f] || (inWindow ? 'pending' : 'outside'), inWindow });
+      }
+
+      const receiverWindow = [];
+      for (let f = 1; f <= windowSize; f++) {
+        receiverWindow.push({ frame: f, status: receiverFrameState[f] || 'waiting' });
+      }
+
+      return { senderWindow, receiverWindow, senderBase, receiverExpects, senderWindowEnd };
+    }
+
+    function renderWindowStrip(label, frames, side) {
+      let html = '<div class="sw-window-strip sw-window-strip--' + side + '">';
+      html += '<span class="sw-window-label">' + label + '</span>';
+      html += '<div class="sw-window-slots">';
+      for (let i = 0; i < frames.length; i++) {
+        const f = frames[i];
+        let cls = 'sw-slot';
+        cls += ' sw-slot--' + f.status;
+        if (f.inWindow !== undefined && f.inWindow) cls += ' sw-slot--in-window';
+        html += '<div class="' + cls + '" title="Frame ' + f.frame + ' (' + f.status + ')">' + f.frame + '</div>';
+      }
+      html += '</div></div>';
+      return html;
     }
 
     function draw() {
+      const state = replayState(index);
+
       const actions = events.slice(0, index + 1).flatMap((event) => {
         if (event.state === 'sent' || event.state === 'resent') return [{ type: 'frame', label: 'F' + event.frame }];
         if (event.state === 'lost') return [{ type: 'frame', label: 'F' + event.frame, outcome: 'lost' }];
         if (event.state === 'buffered') return [{ type: 'deliver', label: 'F' + event.frame + ' buffered' }, { type: 'ack', label: 'ACK' + event.frame }];
         if (event.state === 'acked') return [{ type: 'frame', label: 'F' + event.frame }, { type: 'ack', label: 'ACK' + event.frame }];
-        if (event.text.startsWith('Sender times out')) return [{ type: 'timeout', label: 'timeout' }];
+        if (event.state === 'timeout') return [{ type: 'timeout', label: 'timeout' }];
+        if (event.state === 'delivered') return [{ type: 'deliver', label: 'F' + event.frame + ' delivered' }];
         return [];
       });
-      host.innerHTML = `${NetSim.Components.renderTimingDiagram(actions, actions.length - 1)}
-        <p class="timing-caption">The receiver buffers out-of-order frames and the sender retransmits only the missing frame.</p>`;
+
+      const senderStrip = renderWindowStrip(
+        'Sender Window [' + state.senderBase + '\u2013' + state.senderWindowEnd + '] size=' + windowSize,
+        state.senderWindow, 'sender');
+      const receiverStrip = renderWindowStrip(
+        'Receiver (expects frame ' + state.receiverExpects + ')',
+        state.receiverWindow, 'receiver');
+
+      host.innerHTML = `
+        <div class="sw-window-panel">${senderStrip}${receiverStrip}</div>
+        ${NetSim.Components.renderTimingDiagram(actions, actions.length - 1)}
+        <p class="timing-caption">The receiver buffers out-of-order frames and the sender retransmits only the missing frame.</p>
+      `;
+
+      /* Scroll the timing diagram to the bottom so the latest step is visible. */
+      const scrollBox = host.querySelector('.timing-diagram-scroll');
+      if (scrollBox) scrollBox.scrollTop = scrollBox.scrollHeight;
 
       ctx.setMetrics([
         { label: 'Window Size', value: String(windowSize) },
+        { label: 'Sender Window', value: 'F' + state.senderBase + '\u2013F' + state.senderWindowEnd },
+        { label: 'Receiver Expects', value: 'Frame ' + state.receiverExpects },
         { label: 'Frame Lost', value: String(Math.min(lostFrame, windowSize)) },
         { label: 'Frames Buffered', value: String(stats.buffered) },
         { label: 'Frames Retransmitted', value: String(stats.retransmitted) + ' (vs. Go-Back-N\u2019s ' + (windowSize - Math.min(lostFrame, windowSize) + 1) + ')' },
