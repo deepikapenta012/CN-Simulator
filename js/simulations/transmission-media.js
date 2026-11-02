@@ -7,10 +7,41 @@
   'use strict';
 
   /* ---- Media data ---- */
+  /* ---- Color coding for twisted pair wires (T568A / T568B standards) ---- */
+  const COLOR_PAIRS = [
+    { pair: 1, solid: '#1565C0', stripe: '#1565C0', solidName: 'Blue',         stripeName: 'White/Blue' },
+    { pair: 2, solid: '#E65100', stripe: '#E65100', solidName: 'Orange',       stripeName: 'White/Orange' },
+    { pair: 3, solid: '#2E7D32', stripe: '#2E7D32', solidName: 'Green',        stripeName: 'White/Green' },
+    { pair: 4, solid: '#5D4037', stripe: '#5D4037', solidName: 'Brown',        stripeName: 'White/Brown' }
+  ];
+
+  const T568A_ORDER = [
+    { pin: 1, pairIdx: 2, type: 'stripe', label: 'White/Green' },
+    { pin: 2, pairIdx: 2, type: 'solid',  label: 'Green' },
+    { pin: 3, pairIdx: 3, type: 'stripe', label: 'White/Orange' },
+    { pin: 4, pairIdx: 0, type: 'solid',  label: 'Blue' },
+    { pin: 5, pairIdx: 0, type: 'stripe', label: 'White/Blue' },
+    { pin: 6, pairIdx: 3, type: 'solid',  label: 'Orange' },
+    { pin: 7, pairIdx: 1, type: 'stripe', label: 'White/Brown' },
+    { pin: 8, pairIdx: 1, type: 'solid',  label: 'Brown' }
+  ];
+
+  const T568B_ORDER = [
+    { pin: 1, pairIdx: 3, type: 'stripe', label: 'White/Orange' },
+    { pin: 2, pairIdx: 3, type: 'solid',  label: 'Orange' },
+    { pin: 3, pairIdx: 2, type: 'stripe', label: 'White/Green' },
+    { pin: 4, pairIdx: 0, type: 'solid',  label: 'Blue' },
+    { pin: 5, pairIdx: 0, type: 'stripe', label: 'White/Blue' },
+    { pin: 6, pairIdx: 2, type: 'solid',  label: 'Green' },
+    { pin: 7, pairIdx: 1, type: 'stripe', label: 'White/Brown' },
+    { pin: 8, pairIdx: 1, type: 'solid',  label: 'Brown' }
+  ];
+
   const MEDIA = {
     'utp': {
       name: 'Twisted Pair — UTP',
       image: 'images/twisted-pair.jpg',
+      hasColorCode: true,
       construction: [
         'Four pairs of insulated copper wires twisted together',
         'Each pair has a different twist rate to reduce crosstalk',
@@ -23,6 +54,7 @@
     'stp': {
       name: 'Twisted Pair — STP',
       image: 'images/twisted-pair.jpg',
+      hasColorCode: true,
       construction: [
         'Same twisted pair structure as UTP',
         'Each pair or overall bundle wrapped in metallic foil/braid shield',
@@ -195,6 +227,54 @@
     return '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="var(--ink-faint)" stroke-width="1.5"/>';
   }
 
+  /* ---- Color code rendering for twisted pair ---- */
+  function renderColorCode() {
+    function renderPinout(standard, order) {
+      var rows = order.map(function (w) {
+        var pair = COLOR_PAIRS[w.pairIdx];
+        var color = w.type === 'solid' ? pair.solid : pair.stripe;
+        var bg = w.type === 'solid' ? color : '#ffffff';
+        var border = color;
+        var stripeStyle = w.type === 'stripe'
+          ? 'background:repeating-linear-gradient(90deg,' + color + ' 0 3px,#fff 3px 6px);'
+          : 'background:' + color + ';';
+        return '<tr>' +
+          '<td class="tm-cc-pin">' + w.pin + '</td>' +
+          '<td><span class="tm-cc-swatch" style="' + stripeStyle + 'border-color:' + border + ';"></span></td>' +
+          '<td class="tm-cc-label">' + w.label + '</td>' +
+          '<td class="tm-cc-pair">Pair ' + (w.pairIdx + 1) + '</td>' +
+          '</tr>';
+      }).join('');
+      return '<div class="tm-cc-standard">' +
+        '<h5 class="tm-cc-std-title">' + standard + '</h5>' +
+        '<table class="tm-cc-table">' +
+          '<thead><tr><th>Pin</th><th></th><th>Color</th><th>Pair</th></tr></thead>' +
+          '<tbody>' + rows + '</tbody>' +
+        '</table>' +
+      '</div>';
+    }
+
+    var pairCards = COLOR_PAIRS.map(function (p) {
+      return '<div class="tm-cc-pair-card">' +
+        '<span class="tm-cc-swatch-lg" style="background:' + p.solid + ';"></span>' +
+        '<div class="tm-cc-pair-info">' +
+          '<strong>Pair ' + p.pair + '</strong>' +
+          '<span>' + p.solidName + ' &amp; ' + p.stripeName + '</span>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    return '<div class="tm-color-code">' +
+      '<h4 class="tm-detail-subtitle">Wire Pair Color Coding</h4>' +
+      '<div class="tm-cc-pairs-row">' + pairCards + '</div>' +
+      '<div class="tm-cc-standards">' +
+        renderPinout('T568A', T568A_ORDER) +
+        renderPinout('T568B (more common)', T568B_ORDER) +
+      '</div>' +
+      '<p class="tm-cc-note">T568B is the most widely used standard. A straight-through cable uses the same standard on both ends. A crossover cable uses T568A on one end and T568B on the other.</p>' +
+    '</div>';
+  }
+
   /* ---- Detail panel ---- */
   function renderDetail(id) {
     var m = MEDIA[id];
@@ -208,6 +288,7 @@
       '<div class="tm-detail-body">' +
         '<h4 class="tm-detail-subtitle">Construction</h4>' +
         '<ul class="tm-construction-list">' + m.construction.map(function (c) { return '<li>' + c + '</li>'; }).join('') + '</ul>' +
+        (m.hasColorCode ? renderColorCode() : '') +
         '<h4 class="tm-detail-subtitle">Specifications</h4>' +
         '<table class="tm-spec-table"><tbody>' + specsRows + '</tbody></table>' +
         '<h4 class="tm-detail-subtitle">Common Uses</h4>' +
