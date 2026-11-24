@@ -25,32 +25,41 @@
       const nodes = {};
       const xs = [60, 164, 268, 372, 476, 580];
       xs.forEach((x, i) => { nodes['N' + (i + 1)] = { x, y: 70 }; });
+      const n = xs.length;
       return {
         label: 'Bus', nodes,
         links: [], busRail: { x1: 40, x2: 600, y: 150 },
         stubs: Object.keys(nodes),
         failId: 'bus-rail',
-        cabling: 'Low', spof: 'The single shared cable — one break can silence the whole segment.'
+        cabling: 'Low', spof: 'The single shared cable — one break can silence the whole segment.',
+        linkCount: 1, linkFormula: '1 (single shared backbone cable)',
+        nodeCount: n, dropLines: n, dropFormula: 'N = ' + n + ' drop lines (one per node)'
       };
     })(),
     star: (() => {
       const nodes = circlePositions(6);
       const links = Object.keys(nodes).map((id) => ({ id: 'HUB-' + id, a: 'HUB', b: id }));
       nodes.HUB = { x: CENTER.x, y: CENTER.y, isHub: true };
+      const n = Object.keys(nodes).length - 1; // exclude hub
       return {
         label: 'Star', nodes, links,
         failId: 'HUB',
-        cabling: 'Medium', spof: 'The central switch/hub — if it fails, every node loses connectivity.'
+        cabling: 'Medium', spof: 'The central switch/hub — if it fails, every node loses connectivity.',
+        linkCount: links.length, linkFormula: 'N = ' + n,
+        nodeCount: n
       };
     })(),
     ring: (() => {
       const nodes = circlePositions(6);
       const ids = Object.keys(nodes);
       const links = ids.map((id, i) => ({ id: id + '-' + ids[(i + 1) % ids.length], a: id, b: ids[(i + 1) % ids.length] }));
+      const n = ids.length;
       return {
         label: 'Ring', nodes, links,
         failId: 'N2-N3',
-        cabling: 'Medium', spof: 'Any single link — a plain ring has no alternate direction once broken.'
+        cabling: 'Medium', spof: 'Any single link — a plain ring has no alternate direction once broken.',
+        linkCount: links.length, linkFormula: 'N = ' + n,
+        nodeCount: n
       };
     })(),
     mesh: (() => {
@@ -60,10 +69,13 @@
       for (let i = 0; i < ids.length; i++) {
         for (let j = i + 1; j < ids.length; j++) links.push({ id: ids[i] + '-' + ids[j], a: ids[i], b: ids[j] });
       }
+      const n = ids.length;
       return {
         label: 'Mesh', nodes, links,
         failId: 'N1-N4',
-        cabling: 'Very High', spof: 'None by design — every node has a direct, redundant path to every other.'
+        cabling: 'Very High', spof: 'None by design — every node has a direct, redundant path to every other.',
+        linkCount: links.length, linkFormula: 'N(N−1)/2 = ' + n + '×' + (n - 1) + '/2 = ' + links.length,
+        nodeCount: n
       };
     })(),
     tree: (() => {
@@ -79,10 +91,13 @@
         { id: 'BRA-N1', a: 'BRA', b: 'N1' }, { id: 'BRA-N2', a: 'BRA', b: 'N2' }, { id: 'BRA-N3', a: 'BRA', b: 'N3' },
         { id: 'BRB-N4', a: 'BRB', b: 'N4' }, { id: 'BRB-N5', a: 'BRB', b: 'N5' }, { id: 'BRB-N6', a: 'BRB', b: 'N6' }
       ];
+      const n = Object.keys(nodes).length;
       return {
         label: 'Tree', nodes, links,
         failId: 'BRA',
-        cabling: 'Medium', spof: 'Any branch hub — its failure isolates every leaf beneath it.'
+        cabling: 'Medium', spof: 'Any branch hub — its failure isolates every leaf beneath it.',
+        linkCount: links.length, linkFormula: 'N−1 = ' + n + '−1 = ' + links.length,
+        nodeCount: n
       };
     })()
   };
@@ -223,8 +238,14 @@
       if (failEl) failEl.classList.toggle('is-failed', failed);
 
       const outcome = steps.slice(0, index + 1).map((s) => s.outcome).filter(Boolean).pop();
+      const topo = TOPOLOGIES[topoKey];
+      const linkInfo = topoKey === 'bus'
+        ? topo.dropFormula + ' + ' + topo.linkFormula
+        : topo.linkFormula;
       ctx.setMetrics([
         { label: 'Topology', value: TOPOLOGIES[topoKey].label },
+        { label: 'Number of Links', value: String(topo.linkCount) + (topoKey === 'bus' ? ' backbone + ' + topo.dropLines + ' drop lines' : ' links') },
+        { label: 'Link Formula', value: linkInfo },
         { label: 'Hops', value: String(Math.max(0, steps.filter((s) => s.nodes).length - 1)) },
         { label: 'Relative Cabling', value: TOPOLOGIES[topoKey].cabling },
         { label: 'Single Point of Failure', value: TOPOLOGIES[topoKey].spof },

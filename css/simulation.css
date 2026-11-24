@@ -1118,3 +1118,293 @@
   .fw-arrow { display: none; }
   .proto-layers { grid-template-columns: 1fr; }
 }
+
+/* CSMA failure case diagrams */
+.csf-mount { padding: 1rem; }
+.csf-toolbar { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .8rem; }
+.csf-mount h3 { margin: .3rem 0; }
+.csf-description { color: var(--ink-soft); max-width: 70ch; }
+.csf-diagram { display: block; width: 100%; max-height: 330px; margin: .5rem auto; }
+.csf-range { fill: color-mix(in srgb, var(--accent) 7%, transparent); stroke: var(--accent); stroke-opacity: .45; stroke-dasharray: 6 5; }
+.csf-link { stroke: var(--line-strong); stroke-width: 3; marker-end: none; }
+.csf-link.is-active { stroke: var(--success, #20885a); stroke-width: 5; }
+.csf-link.is-collision { stroke: var(--danger, #c43d48); stroke-width: 5; stroke-dasharray: 8 5; }
+.csf-diagram marker path { fill: var(--line-strong); }
+.csf-packet { fill: var(--success, #20885a); stroke: var(--paper-raised); stroke-width: 2; }
+.csf-packet.is-collision { fill: var(--danger, #c43d48); }
+.csf-link-label { fill: var(--ink-soft); text-anchor: middle; font-size: 12px; font-weight: 700; }
+.csf-station circle { fill: var(--paper-raised); stroke: var(--line-strong); stroke-width: 2; }
+.csf-station text { fill: var(--ink); text-anchor: middle; font-weight: 700; font-size: 16px; }
+.csf-station.is-talking circle { stroke: var(--accent); stroke-width: 4; }
+.csf-station.is-deferred circle { stroke: var(--warning, #bb7b12); stroke-width: 4; }
+.csf-note { fill: var(--ink-soft); text-anchor: middle; font-size: 13px; }
+.csf-impact { fill: var(--danger, #c43d48); text-anchor: middle; font-weight: 800; font-size: 15px; }
+.csf-deferred-label { fill: var(--warning, #bb7b12); }
+
+
+/* ---- QoS simulation ---- */
+.qos-mount { width: 100%; }
+.qos-svg { display: block; width: 100%; height: auto; min-width: 500px; }
+.qos-q-label { font: 600 11px var(--f-display); }
+.qos-q-count { font: 700 13px var(--f-mono); }
+.qos-pkt-id { font: 700 9px var(--f-mono); }
+.qos-pkt-served { font: 700 11px var(--f-display); }
+.qos-sched-label { font: 700 12px var(--f-display); fill: var(--ink); }
+.qos-sched-tick { font: 600 11px var(--f-mono); fill: var(--ink-soft); }
+.qos-out-label { font: 600 12px var(--f-display); fill: var(--ink); }
+
+/* Output strip */
+.qos-output-strip {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 5px; padding: 0.6rem 0; margin-top: 0.4rem;
+  border-top: 1px solid var(--line);
+}
+.qos-strip-label {
+  font: 600 0.78rem var(--f-display); color: var(--ink-soft);
+  margin-right: 0.3rem;
+}
+.qos-strip-pkt {
+  display: inline-block; padding: 0.2rem 0.45rem;
+  border: 1.5px solid; border-radius: 4px;
+  font: 700 0.7rem var(--f-mono); white-space: nowrap;
+}
+.qos-strip-empty { color: var(--ink-faint); font-size: 0.78rem; }
+
+/* Algorithm description */
+.qos-algo-desc { margin-top: 0.6rem; }
+.qos-algo-hint {
+  margin: 0; font-size: 0.8rem; color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+/* Service timeline (Gantt-style) */
+.qos-timeline { margin-top: 1rem; }
+.qos-tl-title {
+  margin: 0 0 0.4rem; font: 600 0.88rem var(--f-display); color: var(--ink);
+}
+.qos-tl-grid {
+  display: flex; flex-direction: column; gap: 2px;
+  overflow-x: auto; padding-bottom: 0.3rem;
+}
+.qos-tl-row {
+  display: flex; align-items: center; gap: 2px; min-width: max-content;
+}
+.qos-tl-label {
+  flex: 0 0 80px; font: 600 0.75rem var(--f-display);
+  text-align: right; padding-right: 0.5rem;
+  white-space: nowrap;
+}
+.qos-tl-cell {
+  flex: 0 0 42px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  font: 700 0.65rem var(--f-mono);
+  border: 1px solid var(--line); border-radius: 3px;
+  background: var(--paper);
+}
+.qos-tl-hcell {
+  font: 600 0.68rem var(--f-mono); color: var(--ink-faint);
+  background: none; border: none;
+}
+.qos-tl-active {
+  border-width: 1.5px;
+}
+
+/* Stats table */
+.qos-stats { margin-top: 1rem; }
+.qos-stats-title {
+  margin: 0 0 0.4rem; font: 600 0.88rem var(--f-display); color: var(--ink);
+}
+.qos-stats-table {
+  width: 100%; border-collapse: collapse; font-size: 0.8rem;
+}
+.qos-stats-table th {
+  text-align: left; padding: 0.4rem 0.6rem;
+  border-bottom: 2px solid var(--line-strong);
+  font-weight: 600; font-size: 0.72rem; color: var(--ink-faint);
+  text-transform: uppercase; white-space: nowrap;
+}
+.qos-stats-table td {
+  padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--line);
+}
+.qos-starved { color: #d32f2f; font-weight: 700; }
+
+@media (max-width: 640px) {
+  .qos-svg { min-width: 400px; }
+  .qos-tl-label { flex: 0 0 60px; font-size: 0.68rem; }
+  .qos-tl-cell { flex: 0 0 32px; height: 22px; font-size: 0.6rem; }
+}
+
+
+/* ---- TCP Timers simulation ---- */
+.tcp-timers-mount { width: 100%; }
+.tcp-tl-svg { display: block; width: 100%; height: auto; min-width: 420px; }
+.tcp-tl-header { font: 700 14px var(--f-display); fill: var(--ink); }
+.tcp-tl-arrow-label { font: 600 10px var(--f-mono); }
+.tcp-tl-timer-label { font: 700 10px var(--f-display); }
+.tcp-tl-note { font: 600 11px var(--f-display); }
+
+/* Timer info panel */
+.tcp-timer-info {
+  margin-top: 0.8rem; padding: 0.8rem 1rem;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--paper);
+}
+.tcp-timer-info-title {
+  margin: 0 0 0.3rem; font: 700 0.95rem var(--f-display); color: var(--ink);
+}
+.tcp-timer-desc {
+  margin: 0 0 0.6rem; font-size: 0.82rem; color: var(--ink-soft); line-height: 1.55;
+}
+.tcp-timer-formulas h5 {
+  margin: 0 0 0.3rem; font: 600 0.78rem var(--f-display);
+  color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.03em;
+}
+.tcp-timer-formulas ul {
+  margin: 0; padding-left: 1rem; list-style: none;
+}
+.tcp-timer-formulas li {
+  position: relative; margin: 0.25rem 0; font-size: 0.8rem;
+}
+.tcp-timer-formulas li::before {
+  content: '▸'; position: absolute; left: -1rem; color: var(--accent);
+}
+.tcp-timer-formulas code {
+  font: 400 0.78rem var(--f-mono); color: var(--ink);
+  background: var(--paper-raised); padding: 0.1rem 0.3rem; border-radius: 3px;
+}
+
+/* RTO bar chart */
+.tcp-chart-mount { margin-top: 0.6rem; }
+.tcp-chart-title {
+  margin: 0 0 0.3rem; font: 600 0.88rem var(--f-display); color: var(--ink);
+}
+.tcp-rto-chart { display: block; width: 100%; height: auto; min-width: 380px; }
+.tcp-chart-axis { font: 600 10px var(--f-display); fill: var(--ink-faint); }
+.tcp-chart-tick { font: 500 9px var(--f-mono); fill: var(--ink-faint); }
+.tcp-chart-val { font: 700 9px var(--f-mono); fill: var(--accent); }
+.tcp-chart-legend { font: 500 10px var(--f-display); fill: var(--ink-soft); }
+
+@media (max-width: 640px) {
+  .tcp-tl-svg { min-width: 320px; }
+  .tcp-rto-chart { min-width: 300px; }
+  .tcp-timer-info { padding: 0.6rem; }
+}
+
+
+/* ---- TCP Window Management simulation ---- */
+.tcpw-mount { width: 100%; }
+.tcpw-buf-svg { display: block; width: 100%; max-width: 520px; height: auto; margin: 0 auto 0.5rem; }
+.tcpw-buf-title { font: 600 11px var(--f-display); fill: var(--ink); }
+.tcpw-tl-svg { display: block; width: 100%; height: auto; min-width: 420px; margin-top: 0.6rem; }
+.tcpw-tl-header { font: 700 13px var(--f-display); fill: var(--ink); }
+.tcpw-arrow-label { font: 600 9.5px var(--f-mono); }
+.tcpw-state-label { font: 700 10px var(--f-display); }
+.tcpw-read-label { font: 600 9px var(--f-display); fill: #2e7d32; }
+
+/* Sender window strip */
+.tcpw-sender-win {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 3px; padding: 0.5rem 0; margin: 0.3rem 0;
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+}
+.tcpw-sw-label {
+  font: 600 0.78rem var(--f-display); color: var(--ink-soft);
+  margin-right: 0.4rem;
+}
+.tcpw-sw-seg {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 26px; border-radius: 4px;
+  font: 700 0.72rem var(--f-mono); border: 1.5px solid;
+}
+.tcpw-sw-sent {
+  background: var(--paper); border-color: var(--line-strong); color: var(--ink-faint);
+}
+.tcpw-sw-usable {
+  background: #c8e6c9; border-color: #2e7d32; color: #1b5e20;
+}
+.tcpw-sw-blocked {
+  background: var(--paper-raised); border-color: var(--line); color: var(--ink-faint);
+  opacity: 0.5;
+}
+.tcpw-sw-zero {
+  font: 700 0.75rem var(--f-display); color: #d32f2f; margin-left: 0.4rem;
+}
+
+/* rwnd chart */
+.tcpw-chart-mount { margin-top: 0.5rem; }
+.tcpw-chart-title {
+  margin: 0 0 0.3rem; font: 600 0.85rem var(--f-display); color: var(--ink);
+}
+.tcpw-rwnd-chart { display: block; width: 100%; height: auto; min-width: 360px; }
+.tcpw-chart-axis { font: 600 9px var(--f-display); fill: var(--ink-faint); }
+
+@media (max-width: 640px) {
+  .tcpw-tl-svg { min-width: 340px; }
+  .tcpw-sw-seg { width: 24px; height: 22px; font-size: 0.65rem; }
+}
+
+
+/* ---- Multiplexing simulation ---- */
+.mux-mount { width: 100%; }
+.mux-pipeline-svg { display: block; width: 100%; height: auto; min-width: 480px; }
+.mux-src-label { font: 600 10px var(--f-display); }
+.mux-box-label { font: 700 13px var(--f-display); fill: var(--ink); }
+.mux-med-label { font: 600 10px var(--f-display); fill: var(--ink-soft); }
+.mux-out-label { font: 600 10px var(--f-display); }
+
+/* Info box */
+.mux-info-box {
+  margin-top: 0.6rem; padding: 0.7rem 1rem;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--paper);
+}
+.mux-info-desc { margin: 0 0 0.5rem; font-size: 0.82rem; color: var(--ink-soft); line-height: 1.5; }
+.mux-info-chars {
+  margin: 0; padding-left: 1.1rem; list-style: none;
+  font-size: 0.78rem; color: var(--ink-soft);
+}
+.mux-info-chars li { margin: 0.2rem 0; position: relative; }
+.mux-info-chars li::before { content: '▸'; position: absolute; left: -1rem; color: var(--accent); }
+
+/* FDM spectrum */
+.mux-spectrum-svg { display: block; width: 100%; height: auto; margin-top: 0.5rem; min-width: 400px; }
+.mux-spec-title { font: 600 11px var(--f-display); fill: var(--ink); }
+.mux-band-label { font: 700 12px var(--f-display); }
+.mux-band-freq { font: 500 9px var(--f-mono); fill: var(--ink-faint); }
+
+/* TDM frames */
+.mux-tdm-frames {
+  display: flex; flex-direction: column; gap: 6px; margin-top: 0.5rem;
+}
+.mux-tdm-frame { display: flex; align-items: center; gap: 4px; }
+.mux-tdm-flabel {
+  flex: 0 0 65px; font: 600 0.72rem var(--f-display); color: var(--ink-faint);
+  text-align: right; padding-right: 0.3rem;
+}
+.mux-tdm-slot {
+  flex: 1; height: 32px; display: flex; align-items: center; justify-content: center;
+  border: 1.5px solid var(--line); border-radius: 4px;
+  font: 700 0.78rem var(--f-mono); color: var(--ink-faint);
+  background: var(--paper); transition: all 0.2s ease;
+}
+.mux-tdm-slot.is-filled { border-width: 2px; }
+.mux-tdm-slot.is-current { box-shadow: 0 0 0 2px var(--accent); }
+
+/* Statistical MUX table */
+.mux-stat-table { margin-top: 0.5rem; }
+.mux-stat-row {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--line);
+}
+.mux-stat-swatch {
+  width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+}
+.mux-stat-app { font: 600 0.82rem var(--f-display); color: var(--ink); flex: 1; }
+.mux-stat-port { font: 400 0.75rem var(--f-mono); color: var(--ink-faint); }
+.mux-stat-cnt { font: 700 0.78rem var(--f-mono); color: var(--accent); min-width: 50px; text-align: right; }
+
+@media (max-width: 640px) {
+  .mux-pipeline-svg { min-width: 360px; }
+  .mux-spectrum-svg { min-width: 320px; }
+  .mux-tdm-flabel { flex: 0 0 50px; font-size: 0.65rem; }
+  .mux-tdm-slot { height: 26px; font-size: 0.7rem; }
+}

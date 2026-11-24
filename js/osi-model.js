@@ -137,7 +137,7 @@
       simulationGroups: [
         { title: 'Error Control', simulationIds: ['crc', 'hamming'] },
         { title: 'Flow Control and Reliable Delivery', simulationIds: ['stop-and-wait', 'sliding-window', 'go-back-n', 'selective-repeat'] },
-        { title: 'Medium Access Control', simulationIds: ['aloha', 'csma-cd', 'csma-ca'] },
+        { title: 'Medium Access Control', simulationIds: ['aloha', 'csma-cd', 'csma-ca', 'csma-failures'] },
         { title: 'Frame Structure', simulationIds: ['ethernet-frame', 'wifi-frame'] }
       ],
       simulations: [
@@ -150,6 +150,7 @@
         { id: 'aloha', name: 'ALOHA', tag: 'medium access', desc: 'Pure and slotted ALOHA contention and collisions.', status: 'available' },
         { id: 'csma-cd', name: 'CSMA/CD', tag: 'medium access', desc: 'Carrier sense, collision detection and backoff on shared wire.', status: 'available' },
         { id: 'csma-ca', name: 'CSMA/CA', tag: 'medium access', desc: 'Collision avoidance used on wireless links.', status: 'available' },
+        { id: 'csma-failures', name: 'CSMA Failure Cases', tag: 'medium access', desc: 'Explore hidden terminal collisions and exposed terminal underuse.', status: 'available' },
         { id: 'ethernet-frame', name: 'Ethernet Frame (IEEE 802.3)', tag: 'frame format', desc: 'Build an Ethernet frame field by field, with a real CRC-32 frame check sequence.', status: 'available' },
         { id: 'wifi-frame', name: 'Wi-Fi Frame (IEEE 802.11)', tag: 'frame format', desc: 'Build an 802.11 data frame: Frame Control flags, three addresses, sequence control and FCS.', status: 'available' }
       ]
