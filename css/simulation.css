@@ -1408,3 +1408,66 @@
   .mux-tdm-flabel { flex: 0 0 50px; font-size: 0.65rem; }
   .mux-tdm-slot { height: 26px; font-size: 0.7rem; }
 }
+
+
+/* ---- TCP Handshake simulation ---- */
+.tcp-hs-mount { width: 100%; }
+.tcp-hs-svg { display: block; width: 100%; height: auto; min-width: 440px; margin-top: 0.5rem; }
+.tcp-hs-header { font: 700 14px var(--f-display); }
+.tcp-hs-state-label { font: 600 10px var(--f-mono); }
+.tcp-hs-arrow-lbl { font: 600 9.5px var(--f-mono); }
+.tcp-hs-state-banner { font: 700 10px var(--f-display); }
+
+/* Connection state boxes */
+.tcp-states-row {
+  display: flex; justify-content: center; gap: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+.tcp-state-box {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 0.5rem 1.2rem; border: 2px solid; border-radius: 8px;
+  min-width: 110px; transition: all 0.25s ease;
+}
+.tcp-state-side { font: 600 0.72rem var(--f-display); text-transform: uppercase; letter-spacing: 0.04em; }
+.tcp-state-name { font: 700 0.95rem var(--f-mono); margin-top: 0.15rem; }
+
+/* TCP segment header strip */
+.tcp-header-strip {
+  margin: 0.4rem 0; padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line); border-radius: 6px;
+  background: var(--paper);
+}
+.tcp-header-title {
+  display: block; font: 600 0.72rem var(--f-display);
+  color: var(--ink-faint); text-transform: uppercase;
+  letter-spacing: 0.04em; margin-bottom: 0.35rem;
+}
+.tcp-header-fields {
+  display: flex; flex-wrap: wrap; gap: 4px;
+}
+.tcp-hf {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 0.3rem 0.5rem; border: 1px solid var(--line-strong);
+  border-radius: 4px; background: var(--paper-raised);
+  min-width: 70px; flex: 1;
+}
+.tcp-hf-name { font: 600 0.65rem var(--f-display); color: var(--ink-faint); }
+.tcp-hf-val { font: 700 0.82rem var(--f-mono); color: var(--ink); }
+.tcp-hf-seq { border-color: #1565c0; background: #e3f2fd; }
+.tcp-hf-seq .tcp-hf-val { color: #1565c0; }
+.tcp-hf-ack { border-color: #2e7d32; background: #e8f5e9; }
+.tcp-hf-ack .tcp-hf-val { color: #2e7d32; }
+.tcp-hf-flags { border-color: #e65100; background: #fff3e0; }
+.tcp-hf-flags .tcp-hf-val { color: #e65100; }
+.tcp-hf-win { border-color: #6a1b9a; background: #f3e5f5; }
+.tcp-hf-win .tcp-hf-val { color: #6a1b9a; }
+
+.tcp-param-checks { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+@media (max-width: 640px) {
+  .tcp-hs-svg { min-width: 340px; }
+  .tcp-state-box { min-width: 90px; padding: 0.4rem 0.8rem; }
+  .tcp-state-name { font-size: 0.82rem; }
+  .tcp-hf { min-width: 55px; padding: 0.25rem 0.35rem; }
+  .tcp-hf-val { font-size: 0.72rem; }
+}
