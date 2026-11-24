@@ -1471,3 +1471,98 @@
   .tcp-hf { min-width: 55px; padding: 0.25rem 0.35rem; }
   .tcp-hf-val { font-size: 0.72rem; }
 }
+
+
+
+/* ---- UDP Transmission simulation ---- */
+.udp-mount { width: 100%; }
+.udp-tl-svg { display: block; width: 100%; height: auto; min-width: 440px; }
+.udp-tl-header { font: 700 14px var(--f-display); }
+.udp-tl-subhdr { font: 500 10px var(--f-mono); fill: var(--ink-faint); }
+.udp-arrow-label { font: 600 9.5px var(--f-mono); }
+.udp-no-ack {
+  font: 700 11px var(--f-display); fill: #d32f2f;
+  letter-spacing: 0.03em;
+}
+.udp-lost-label { font: 700 10px var(--f-display); }
+.udp-note-label { font: 600 10px var(--f-display); }
+
+/* UDP header breakdown */
+.udp-header {
+  margin: 0.5rem 0; padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line); border-radius: 6px;
+  background: var(--paper);
+}
+.udp-header-title {
+  display: block; font: 600 0.78rem var(--f-display);
+  color: #1565c0; margin-bottom: 0.35rem;
+}
+.udp-header-fields {
+  display: flex; flex-wrap: wrap; gap: 4px;
+}
+.udp-header-compare {
+  margin-top: 0.4rem; font: 500 0.72rem var(--f-display);
+  color: var(--ink-faint); text-align: center;
+}
+.udp-hf {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 0.35rem 0.5rem; border: 1.5px solid #1565c0;
+  border-radius: 4px; background: #e3f2fd;
+  min-width: 70px; flex: 1;
+}
+.udp-hf-name { font: 600 0.65rem var(--f-display); color: #1565c0; }
+.udp-hf-val  { font: 700 0.85rem var(--f-mono); color: #0d47a1; }
+
+/* Delivery strip */
+.udp-delivery-strip {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 5px; padding: 0.5rem 0; margin-bottom: 0.4rem;
+  border-bottom: 1px solid var(--line);
+}
+.udp-strip-title {
+  font: 600 0.78rem var(--f-display); color: var(--ink-soft);
+  margin-right: 0.3rem;
+}
+.udp-dg {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0.2rem 0.5rem; border-radius: 4px;
+  font: 700 0.72rem var(--f-mono); border: 1.5px solid;
+  transition: all 0.2s ease;
+}
+.udp-dg-pending {
+  background: var(--paper-raised); border-color: var(--line);
+  color: var(--ink-faint); opacity: 0.5;
+}
+.udp-dg-ok {
+  background: #e8f5e9; border-color: #2e7d32; color: #1b5e20;
+}
+.udp-dg-lost {
+  background: #ffebee; border-color: #d32f2f; color: #c62828;
+  text-decoration: line-through;
+}
+
+/* Use-case info box */
+.udp-info {
+  margin-top: 0.6rem; padding: 0.7rem 1rem;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--paper);
+}
+.udp-info-title {
+  margin: 0 0 0.3rem; font: 700 0.9rem var(--f-display); color: var(--ink);
+}
+.udp-info-note {
+  margin: 0 0 0.5rem; font-size: 0.82rem; color: var(--ink-soft); line-height: 1.5;
+}
+.udp-info-props {
+  margin: 0; padding-left: 1.1rem; list-style: none;
+  font-size: 0.78rem; color: var(--ink-soft);
+}
+.udp-info-props li { margin: 0.2rem 0; position: relative; }
+.udp-info-props li::before { content: '▸'; position: absolute; left: -1rem; color: var(--accent); }
+
+@media (max-width: 640px) {
+  .udp-tl-svg { min-width: 340px; }
+  .udp-hf { min-width: 55px; padding: 0.25rem 0.35rem; }
+  .udp-hf-val { font-size: 0.75rem; }
+  .udp-dg { padding: 0.15rem 0.35rem; font-size: 0.65rem; }
+}
