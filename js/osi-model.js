@@ -118,7 +118,7 @@
         { id: 'ipv4', name: 'IPv4 Addressing', tag: 'addressing', desc: 'Explore CIDR prefixes, subnet masks, network and broadcast addresses, and usable host ranges.', status: 'available' },
         { id: 'ipv6', name: 'IPv6 Addressing', tag: 'addressing', desc: 'Expand and compress IPv6 addresses, inspect address types, and identify network prefixes.', status: 'available' },
         { id: 'subnetting', name: 'Subnetting', tag: 'addressing', desc: 'Borrow host bits to split a CIDR network into equal-sized subnets and inspect each address range.', status: 'available' },
-        { id: 'cidr', name: 'CIDR', tag: 'addressing', desc: 'Classless prefixes and route aggregation.', status: 'available' },
+        { id: 'cidr', name: 'CIDR', tag: 'addressing', desc: 'Find the common binary prefix of contiguous networks and see exact or over-covering aggregate routes.', status: 'available' },
         { id: 'nat', name: 'NAT', tag: 'translation', desc: 'Private-to-public address translation for outbound traffic.', status: 'available' },
         { id: 'arp', name: 'ARP', tag: 'resolution', desc: 'Resolving an IP address to a MAC address on the local link.', status: 'available' },
         { id: 'rarp', name: 'RARP', tag: 'resolution', desc: 'Resolving a MAC address back to an IP address.', status: 'available' },

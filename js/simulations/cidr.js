@@ -18,6 +18,7 @@
     if (p.length !== 4) return null;
     var n = 0;
     for (var i = 0; i < 4; i++) {
+      if (!/^\d{1,3}$/.test(p[i])) return null;
       var v = parseInt(p[i], 10);
       if (isNaN(v) || v < 0 || v > 255) return null;
       n = (n * 256 + v) >>> 0;
@@ -75,34 +76,40 @@
     /* ── compute ──────────────────────────────────────────────────────── */
     function compute() {
       var baseInt = ipToInt(baseIp);
-      if (baseInt === null) return null;
+      if (baseInt === null) return { error: 'Enter a valid IPv4 address with four octets from 0 to 255.' };
+      if (blockCount < 2 || blockCount > 16 || blockCount % 1 !== 0) return { error: 'Choose between 2 and 16 contiguous /24 blocks.' };
+      var baseNetworkInt = Math.floor(baseInt / 256) * 256;
+      if (baseNetworkInt + blockCount * 256 > 4294967296) return { error: 'The requested /24 blocks extend beyond the IPv4 address space.' };
       var blocks = [];
       var bins   = [];
       for (var i = 0; i < blockCount; i++) {
-        var net = (baseInt + i * 256) >>> 0;
+        var net = baseNetworkInt + i * 256;
         blocks.push({ net: net, label: intToIp(net) + '/24' });
         bins.push(toBin32(net));
       }
       var pfx = commonPrefix(bins);
-      var aggNet = pfx === 0 ? 0 : (baseInt & ((~0 << (32 - pfx)) >>> 0)) >>> 0;
+      var aggNet = pfx === 0 ? 0 : (baseNetworkInt & ((~0 << (32 - pfx)) >>> 0)) >>> 0;
       var aggSize = Math.pow(2, 32 - pfx);
       var covered = aggSize / 256;
-      var exact = aggNet === baseInt && covered === blockCount;
-      return { blocks: blocks, bins: bins, pfx: pfx, aggNet: aggNet,
+      var overBefore = (baseNetworkInt - aggNet) / 256;
+      var overAfter = covered - blockCount - overBefore;
+      var exact = aggNet === baseNetworkInt && covered === blockCount;
+      return { blocks: blocks, bins: bins, pfx: pfx, aggNet: aggNet, aggEnd: aggNet + aggSize - 1,
                agg: intToIp(aggNet) + '/' + pfx, aggSize: aggSize,
-               covered: covered, exact: exact };
+               covered: covered, exact: exact, baseNetwork: intToIp(baseNetworkInt), baseNetworkInt: baseNetworkInt,
+               inputAddress: baseIp, overBefore: overBefore, overAfter: overAfter };
     }
 
     function buildPhases() {
       info = compute();
-      if (!info) return [{ t: 'Invalid base IP address.', lv: 'error', v: 'err' }];
+      if (!info || info.error) return [{ t: info ? info.error : 'Invalid base IP address.', lv: 'error', v: 'err' }];
       var p = [];
-      p.push({ t: blockCount + ' contiguous /24 blocks starting at ' + baseIp + '.', v: 'list' });
+      p.push({ t: blockCount + ' contiguous /24 blocks starting at ' + info.baseNetwork + '.' + (info.inputAddress !== info.baseNetwork ? ' Host bits in the entered address were cleared to align to the /24 network.' : ''), v: 'list' });
       p.push({ t: 'Binary network addresses — aligning to find the common prefix…', v: 'bin' });
       p.push({ t: 'Common prefix length: ' + info.pfx + ' bits (teal).', v: 'pfx' });
       p.push({ t: 'Aggregate supernet: ' + info.agg + (info.exact
         ? ' — covers exactly ' + blockCount + ' blocks.'
-        : ' — spans ' + info.covered + ' /24 blocks (extra ' + (info.covered - blockCount) + ').'),
+        : ' — spans ' + info.covered + ' /24 blocks (+' + info.overBefore + ' before, +' + info.overAfter + ' after).'),
         v: 'agg', lv: info.exact ? 'success' : 'warning' });
       p.push({ t: 'Routing table: ' + blockCount + ' entries → 1 entry.  Reduction: ' +
         Math.round((1 - 1 / blockCount) * 100) + '%.', v: 'route', lv: 'success' });
@@ -150,7 +157,7 @@
     /* ── coverage block diagram ───────────────────────────────────────── */
     function coverageDiagram() {
       if (!info || index < 3) return '';
-      var total = Math.max(info.covered, blockCount);
+      var total = info.covered;
       var barW = 600, barH = 32;
       var html = '<div class="cidr-coverage">';
       html += '<svg class="cidr-svg" viewBox="0 0 ' + (barW + 40) + ' 70" preserveAspectRatio="xMidYMid meet">';
@@ -161,15 +168,24 @@
 
       /* actual blocks overlay */
       var usedW = (blockCount / total) * barW;
-      html += '<rect x="20" y="10" width="' + usedW + '" height="' + barH + '" rx="4" fill="' + C_PFX + '33" stroke="' + C_PFX + '" stroke-width="1.5"/>';
+      var offsetW = (info.overBefore / total) * barW;
+      html += '<rect x="' + (20 + offsetW) + '" y="10" width="' + usedW + '" height="' + barH + '" rx="4" fill="' + C_PFX + '33" stroke="' + C_PFX + '" stroke-width="1.5"/>';
 
       /* labels */
-      html += '<text x="20" y="58" font-size="9" fill="' + C_PFX + '">■ Your ' + blockCount + ' blocks</text>';
-      if (!info.exact) {
-        html += '<text x="' + (usedW + 30) + '" y="58" font-size="9" fill="' + C_OVER + '">■ Extra coverage (+' + (info.covered - blockCount) + ')</text>';
-      }
+      html += '<text x="' + (20 + offsetW + usedW / 2) + '" y="58" text-anchor="middle" font-size="9" fill="' + C_PFX + '">Your ' + blockCount + ' blocks</text>';
+      if (info.overBefore > 0) html += '<text x="20" y="58" font-size="9" fill="' + C_OVER + '">+' + info.overBefore + ' before</text>';
+      if (info.overAfter > 0) html += '<text x="620" y="58" text-anchor="end" font-size="9" fill="' + C_OVER + '">+' + info.overAfter + ' after</text>';
       html += '</svg></div>';
       return html;
+    }
+
+    function aggregateSummary() {
+      if (!info || index < 3) return '';
+      var detail = info.exact ? 'This route covers exactly the requested blocks.' :
+        'It also covers ' + (info.overBefore + info.overAfter) + ' extra /24 block(s): ' + info.overBefore + ' before and ' + info.overAfter + ' after.';
+      return '<section class="cidr-summary"><div><span>Longest common prefix</span><strong>/' + info.pfx + '</strong></div>' +
+        '<div><span>Aggregate route</span><strong>' + info.agg + '</strong></div>' +
+        '<div><span>Address range covered</span><strong>' + intToIp(info.aggNet) + ' – ' + intToIp(info.aggEnd) + '</strong></div><p>' + detail + '</p></section>';
     }
 
     /* ── routing reduction ────────────────────────────────────────────── */
@@ -196,13 +212,13 @@
         ctx.setMetrics([]);
         return;
       }
-      mount.innerHTML = svgBinGrid() + coverageDiagram() + routeReduction();
+      mount.innerHTML = aggregateSummary() + svgBinGrid() + coverageDiagram() + routeReduction();
 
       ctx.setMetrics([
         { label: 'Individual Blocks', value: String(blockCount) },
         { label: 'Common Prefix', value: '/' + info.pfx },
         { label: 'Aggregate', value: info.agg },
-        { label: 'Coverage', value: info.exact ? 'Exact' : info.covered + ' /24s (extra ' + (info.covered - blockCount) + ')' },
+        { label: 'Coverage', value: info.exact ? 'Exact' : info.covered + ' /24s (+' + info.overBefore + ' before, +' + info.overAfter + ' after)' },
         { label: 'Routing Entries', value: blockCount + ' → 1' },
         { label: 'Reduction', value: Math.round((1 - 1 / blockCount) * 100) + '%' }
       ]);
@@ -220,7 +236,7 @@
       }
       html += '</div>';
       html += '<div class="cidr-custom">';
-      html += '<div class="sim-param-row"><label>First /24 block</label><input type="text" id="cidrBase" maxlength="15" value="' + baseIp + '"></div>';
+      html += '<div class="sim-param-row"><label>First /24 block</label><input type="text" id="cidrBase" maxlength="15" value="' + baseIp + '" placeholder="e.g. 192.168.0.0"></div>';
       html += '<div class="sim-param-row"><label>Block Count</label>' +
         '<input type="range" id="cidrCount" min="2" max="16" step="1" value="' + blockCount + '">' +
         '<span class="val" id="cidrCountVal">' + blockCount + '</span></div>';

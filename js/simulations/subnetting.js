@@ -74,11 +74,13 @@
       var subSize = Math.pow(2, 32 - newPfx);
       var maxPoss = Math.pow(2, needed);
       var totalAddrs = Math.pow(2, 32 - basePrefix);
-      var baseNetwork = Math.floor(baseInt / totalAddrs) * totalAddrs;
+      var baseNetworkInt = Math.floor(baseInt / totalAddrs) * totalAddrs;
+      var baseNetwork = baseNetworkInt;
       var subs = [];
       for (var i = 0; i < Math.min(numSubnets, maxPoss); i++) {
         var net = baseNetwork + i * subSize;
         subs.push({
+          netInt: net,
           network:   intToIp(net) + '/' + newPfx,
           netAddr:   intToIp(net),
           first:     intToIp(newPfx >= 31 ? net : net + 1),
@@ -87,7 +89,7 @@
           col: COLS[i % COLS.length]
         });
       }
-      return { needed: needed, newPfx: newPfx, subSize: subSize, baseNetwork: intToIp(baseNetwork),
+      return { needed: needed, newPfx: newPfx, subSize: subSize, baseNetwork: intToIp(baseNetwork), baseNetworkInt: baseNetworkInt, baseInt: baseInt,
                usable: newPfx === 31 ? 2 : newPfx === 32 ? 1 : subSize - 2, subs: subs, maxPoss: maxPoss,
                totalAddrs: totalAddrs, inputAddress: baseIp };
     }
