@@ -1,101 +1,238 @@
 /* ==========================================================================
-   NetSim — simulations/nat.js
-   Port Address Translation: several internal hosts share one public IP,
-   each outbound flow gets a unique public port, and an inbound reply is
-   only accepted if it matches an entry already in the table — an
-   unsolicited inbound packet has nowhere to go and is dropped.
+   NetSim — simulations/nat.js   (rebuilt)
+   Port Address Translation (PAT / NAT overload) with:
+   • SVG network diagram: Internal hosts ↔ NAT Router ↔ Internet
+   • Animated packet arrows (outbound green, inbound blue, dropped red)
+   • Live NAT translation table with row highlighting
+   • 3 scenario presets: Basic PAT, Inbound Reply, Unsolicited Drop
+   • Packet header comparison (before/after NAT)
    ========================================================================== */
 
 (function (NetSim) {
   'use strict';
 
-  const PUBLIC_IP = '203.0.113.5';
+  var PUBLIC_IP = '203.0.113.5';
+
+  var PRESETS = [
+    { label: 'Basic Outbound PAT', tag: '3 flows mapped', key: 'basic' },
+    { label: 'Inbound Reply',      tag: 'Table lookup hit',  key: 'reply' },
+    { label: 'Unsolicited Inbound', tag: 'Dropped — no match', key: 'drop' }
+  ];
+
+  var FLOWS = [
+    { internal: '10.0.0.2:5001', dest: '93.184.216.34:443',  port: 40001, host: 'Host A' },
+    { internal: '10.0.0.3:5002', dest: '142.250.72.78:443',  port: 40002, host: 'Host B' },
+    { internal: '10.0.0.4:5003', dest: '93.184.216.34:80',   port: 40003, host: 'Host C' }
+  ];
 
   NetSim.SimRegistry.register('nat', function factory(ctx) {
-    let table = [];
-    let events = [];
-    let index = -1;
-    let timer = null;
-    let host = null;
+    var preIdx  = 0;
+    var table   = [];
+    var events  = [];
+    var index   = -1;
+    var timer   = null;
+    var mount   = null;
 
+    /* ── build events ─────────────────────────────────────────────────── */
     function buildEvents() {
       table = [];
-      const flows = [
-        { internal: '10.0.0.2:5001', dest: '93.184.216.34:443', port: 40001 },
-        { internal: '10.0.0.3:5002', dest: '142.250.72.78:443', port: 40002 },
-        { internal: '10.0.0.4:5003', dest: '93.184.216.34:80', port: 40003 }
-      ];
-      const out = [];
-      flows.forEach((f) => {
-        out.push({
-          text: f.internal + ' sends a packet to ' + f.dest + '. NAT router creates a table entry: ' + f.internal + ' \u2194 ' + PUBLIC_IP + ':' + f.port,
-          addEntry: f
-        });
-      });
-      out.push({ text: 'Outbound packets now leave with source ' + PUBLIC_IP + ' and their assigned port \u2014 the destination only ever sees the public address.', level: 'success' });
-      out.push({ text: 'A reply arrives addressed to ' + PUBLIC_IP + ':40002. NAT looks up port 40002 in its table...', phase: 'inboundGood' });
-      out.push({ text: 'Match found \u2014 translated back to 10.0.0.3:5002 and delivered internally.', level: 'success', phase: 'inboundGood' });
-      out.push({ text: 'An unsolicited packet arrives addressed to ' + PUBLIC_IP + ':50000 \u2014 no table entry exists for that port.', phase: 'inboundBad', level: 'warning' });
-      out.push({ text: 'With no matching entry, NAT has no internal host to deliver it to \u2014 the packet is dropped. This is why NAT incidentally blocks unsolicited inbound connections.', phase: 'inboundBad', level: 'error' });
+      var out = [];
+      var mode = PRESETS[preIdx].key;
+
+      /* outbound flows */
+      for (var i = 0; i < FLOWS.length; i++) {
+        var f = FLOWS[i];
+        out.push({ t: f.host + ' (' + f.internal + ') sends a packet to ' + f.dest + '.  NAT maps to ' + PUBLIC_IP + ':' + f.port + '.', dir: 'out', flow: i, addEntry: f });
+      }
+      out.push({ t: 'All three outbound flows mapped.  External servers only see ' + PUBLIC_IP + '.', dir: 'none', lv: 'success' });
+
+      if (mode === 'reply' || mode === 'drop') {
+        /* inbound reply */
+        out.push({ t: 'A reply arrives for ' + PUBLIC_IP + ':40002.  NAT looks up port 40002…', dir: 'in', flow: 1 });
+        out.push({ t: 'Match found → translated back to 10.0.0.3:5002 and delivered to Host B.', dir: 'in-ok', flow: 1, lv: 'success' });
+      }
+
+      if (mode === 'drop') {
+        /* unsolicited */
+        out.push({ t: 'An unsolicited packet arrives for ' + PUBLIC_IP + ':50000.  No table entry for port 50000.', dir: 'in-bad', lv: 'warning' });
+        out.push({ t: 'Packet DROPPED — no matching entry.  NAT incidentally blocks unsolicited inbound connections.', dir: 'dropped', lv: 'error' });
+      }
+
       return out;
     }
 
+    /* ── SVG network diagram ──────────────────────────────────────────── */
+    function svgDiagram() {
+      var step = events[Math.max(0, index)] || {};
+      var W = 680, H = 160;
+      var html = '<svg class="nat-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet">';
+
+      /* hosts column */
+      var hosts = ['Host A\n10.0.0.2', 'Host B\n10.0.0.3', 'Host C\n10.0.0.4'];
+      for (var i = 0; i < 3; i++) {
+        var hy = 20 + i * 48;
+        var active = step.flow === i;
+        html += '<rect x="10" y="' + hy + '" width="100" height="36" rx="6" fill="' + (active ? '#e0f7fa' : '#fafafa') + '" stroke="' + (active ? '#0097a7' : '#bbb') + '" stroke-width="' + (active ? 2 : 1) + '"/>';
+        var lines = hosts[i].split('\n');
+        html += '<text x="60" y="' + (hy + 15) + '" text-anchor="middle" font-size="10" font-weight="600" fill="var(--ink)">' + lines[0] + '</text>';
+        html += '<text x="60" y="' + (hy + 27) + '" text-anchor="middle" font-size="8" font-family="var(--f-mono)" fill="var(--ink-faint)">' + lines[1] + '</text>';
+      }
+
+      /* NAT router */
+      html += '<rect x="260" y="50" width="130" height="60" rx="8" fill="#e0f7fa" stroke="#0097a7" stroke-width="2"/>';
+      html += '<text x="325" y="72" text-anchor="middle" font-size="12" font-weight="700" fill="#00695c">NAT Router</text>';
+      html += '<text x="325" y="88" text-anchor="middle" font-size="9" font-family="var(--f-mono)" fill="#0097a7">' + PUBLIC_IP + '</text>';
+
+      /* Internet cloud */
+      html += '<ellipse cx="560" cy="80" rx="80" ry="40" fill="#fff3e0" stroke="#f9a825" stroke-width="1.5"/>';
+      html += '<text x="560" y="84" text-anchor="middle" font-size="12" font-weight="600" fill="#e65100">Internet</text>';
+
+      /* arrows */
+      var arrowCol = '#66bb6a';
+      var arrowDir = 'out';
+      if (step.dir === 'in' || step.dir === 'in-ok') { arrowCol = '#42a5f5'; arrowDir = 'in'; }
+      if (step.dir === 'in-bad') { arrowCol = '#ffa726'; arrowDir = 'in'; }
+      if (step.dir === 'dropped') { arrowCol = '#ef5350'; arrowDir = 'in'; }
+
+      if (step.dir && step.dir !== 'none') {
+        /* left arrow (hosts ↔ router) */
+        var ay = step.flow !== undefined ? 38 + step.flow * 48 : 80;
+        if (arrowDir === 'out') {
+          html += '<line x1="110" y1="' + ay + '" x2="258" y2="80" stroke="' + arrowCol + '" stroke-width="2" marker-end="url(#natArrow)"/>';
+        } else {
+          html += '<line x1="258" y1="80" x2="112" y2="' + ay + '" stroke="' + arrowCol + '" stroke-width="2" marker-end="url(#natArrow)"/>';
+        }
+        /* right arrow (router ↔ internet) */
+        if (arrowDir === 'out') {
+          html += '<line x1="392" y1="80" x2="478" y2="80" stroke="' + arrowCol + '" stroke-width="2" marker-end="url(#natArrow)"/>';
+        } else {
+          html += '<line x1="478" y1="80" x2="394" y2="80" stroke="' + arrowCol + '" stroke-width="2" marker-end="url(#natArrow)"/>';
+        }
+        /* X for dropped */
+        if (step.dir === 'dropped') {
+          html += '<text x="325" y="130" text-anchor="middle" font-size="22" fill="#ef5350" font-weight="700">✗ DROPPED</text>';
+        }
+      }
+
+      /* marker def */
+      html += '<defs><marker id="natArrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="' + arrowCol + '"/></marker></defs>';
+
+      html += '</svg>';
+      return html;
+    }
+
+    /* ── NAT table ────────────────────────────────────────────────────── */
+    function natTable() {
+      var step = events[Math.max(0, index)] || {};
+      /* accumulate entries */
+      var liveTable = [];
+      for (var i = 0; i <= Math.max(0, index) && i < events.length; i++) {
+        if (events[i].addEntry) liveTable.push(events[i].addEntry);
+      }
+
+      if (liveTable.length === 0) return '<div class="nat-table-empty">NAT table is empty — no flows yet.</div>';
+
+      var html = '<div class="nat-tbl-wrap"><table class="nat-tbl">';
+      html += '<thead><tr><th>Internal</th><th>→</th><th>Public (NAT\'d)</th><th>Destination</th></tr></thead><tbody>';
+      for (var i = 0; i < liveTable.length; i++) {
+        var f = liveTable[i];
+        var hl = step.flow === i ? ' class="nat-tbl-hl"' : '';
+        html += '<tr' + hl + '><td>' + f.internal + '</td><td>→</td><td>' + PUBLIC_IP + ':' + f.port + '</td><td>' + f.dest + '</td></tr>';
+      }
+      html += '</tbody></table></div>';
+      return html;
+    }
+
+    /* ── header comparison ────────────────────────────────────────────── */
+    function headerCompare() {
+      if (index < 0) return '';
+      var step = events[Math.max(0, index)];
+      if (step.flow === undefined || !step.addEntry && step.dir !== 'out') return '';
+      var f = FLOWS[step.flow] || FLOWS[0];
+      var html = '<div class="nat-hdr-cmp">';
+      html += '<div class="nat-hdr-box"><div class="nat-hdr-title">Before NAT</div>';
+      html += '<div class="nat-hdr-field">Src: <strong>' + f.internal + '</strong></div>';
+      html += '<div class="nat-hdr-field">Dst: ' + f.dest + '</div></div>';
+      html += '<div class="nat-hdr-arrow">→</div>';
+      html += '<div class="nat-hdr-box nat-hdr-after"><div class="nat-hdr-title">After NAT</div>';
+      html += '<div class="nat-hdr-field">Src: <strong>' + PUBLIC_IP + ':' + f.port + '</strong></div>';
+      html += '<div class="nat-hdr-field">Dst: ' + f.dest + '</div></div>';
+      html += '</div>';
+      return html;
+    }
+
+    /* ── draw ──────────────────────────────────────────────────────────── */
     function draw() {
-      const step = events[Math.max(0, index)] || {};
-      if (step.addEntry && !table.includes(step.addEntry)) table.push(step.addEntry);
+      mount.innerHTML = svgDiagram() + natTable() + headerCompare();
 
-      host.innerHTML = `
-        <div class="fw-diagram">
-          <div class="fw-node">Internal Hosts</div>
-          <div class="fw-packet-track"><span class="fw-arrow" style="font-size:1.2rem;">${step.phase && step.phase.startsWith('inbound') ? '\u2190' : '\u2192'}</span></div>
-          <div class="fw-node" style="border-color:var(--teal);color:var(--teal);">NAT Router<br><span style="font-size:0.65rem;">${PUBLIC_IP}</span></div>
-          <div class="fw-packet-track"><span class="fw-arrow" style="font-size:1.2rem;">${step.phase && step.phase.startsWith('inbound') ? '\u2190' : '\u2192'}</span></div>
-          <div class="fw-node">Internet</div>
-        </div>
-        <div style="overflow-x:auto;margin-top:0.75rem;">
-          <table class="compare-table"><thead><tr><th>Internal</th><th>Public</th><th>Destination</th></tr></thead>
-          <tbody>${table.map((f) => `<tr><td class="mono">${f.internal}</td><td class="mono">${PUBLIC_IP}:${f.port}</td><td class="mono">${f.dest}</td></tr>`).join('') || '<tr><td colspan="3" style="color:var(--ink-faint);">No entries yet</td></tr>'}</tbody></table>
-        </div>
-      `;
-
+      var liveCount = 0;
+      for (var i = 0; i <= Math.max(0, index) && i < events.length; i++) {
+        if (events[i].addEntry) liveCount++;
+      }
+      var step = events[Math.max(0, index)] || {};
       ctx.setMetrics([
         { label: 'Public IP', value: PUBLIC_IP },
-        { label: 'NAT Table Entries', value: String(table.length) },
-        { label: 'Inbound Accepted', value: String(events.slice(0, index + 1).filter((e) => e.phase === 'inboundGood' && e.level === 'success').length) },
-        { label: 'Inbound Dropped', value: String(events.slice(0, index + 1).filter((e) => e.phase === 'inboundBad' && e.level === 'error').length) }
+        { label: 'NAT Table Entries', value: String(liveCount) },
+        { label: 'Scenario', value: PRESETS[preIdx].label },
+        { label: 'Last Action', value: step.dir === 'dropped' ? 'Dropped' : step.dir === 'in-ok' ? 'Delivered' : step.dir === 'out' ? 'Mapped outbound' : '—' }
       ]);
     }
 
+    /* ── params ────────────────────────────────────────────────────────── */
+    function renderParams() {
+      ctx.params.hidden = false;
+      var html = '<div class="nat-presets">';
+      for (var i = 0; i < PRESETS.length; i++) {
+        html += '<label class="switch-mode-option' + (i === preIdx ? ' is-checked' : '') + '">' +
+          '<input type="radio" name="natpre" value="' + i + '"' + (i === preIdx ? ' checked' : '') + '> ' +
+          '<strong>' + PRESETS[i].label + '</strong><br><span style="font-size:0.72rem;color:var(--ink-faint);">' + PRESETS[i].tag + '</span></label>';
+      }
+      html += '</div>';
+      ctx.params.innerHTML = html;
+
+      var radios = ctx.params.querySelectorAll('input[name="natpre"]');
+      for (var i = 0; i < radios.length; i++) {
+        radios[i].addEventListener('change', function (e) {
+          preIdx = parseInt(e.target.value, 10);
+          rebuild();
+        });
+      }
+    }
+
+    /* ── lifecycle ─────────────────────────────────────────────────────── */
     function rebuild() {
-      stop();
-      index = -1;
+      stop(); index = -1;
       events = buildEvents();
-      ctx.params.hidden = true;
-      draw();
-      ctx.log('Ready \u2014 three internal hosts are about to share one public IP address.');
+      renderParams(); draw();
+      ctx.log('Ready — ' + PRESETS[preIdx].label + ': three internal hosts sharing ' + PUBLIC_IP + '.');
     }
 
     function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
 
     function advance() {
       if (index >= events.length - 1) { stop(); return; }
-      index += 1;
-      ctx.log(events[index].text, events[index].level);
+      index++;
+      ctx.log(events[index].t, events[index].lv);
       draw();
     }
 
     return {
-      initialize() {
-        ctx.canvas.classList.add('net-canvas');
+      initialize: function () {
         ctx.canvas.innerHTML = '<div class="nat-mount"></div>';
-        host = ctx.canvas.querySelector('.nat-mount');
+        mount = ctx.canvas.querySelector('.nat-mount');
         rebuild();
       },
-      start() { if (timer) return; timer = NetSim.SimTiming.setInterval(() => { if (index >= events.length - 1) { stop(); return; } advance(); }, 700); },
-      pause() { stop(); },
-      step() { stop(); advance(); },
-      reset() { rebuild(); },
-      destroy() { stop(); }
+      start: function () {
+        if (timer) return;
+        timer = NetSim.SimTiming.setInterval(function () {
+          if (index >= events.length - 1) { stop(); return; }
+          advance();
+        }, 800);
+      },
+      pause: function () { stop(); },
+      step:  function () { stop(); advance(); },
+      reset: function () { rebuild(); },
+      destroy: function () { stop(); }
     };
   });
 

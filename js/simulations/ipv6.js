@@ -1,123 +1,232 @@
 /* ==========================================================================
-   NetSim — simulations/ipv6.js
-   Real IPv6 compression rules applied step by step: strip leading zeros
-   within each group, then collapse the single longest run of all-zero
-   groups into "::".
+   NetSim — simulations/ipv6.js   (rebuilt)
+   Interactive IPv6 address analyser with:
+   • SVG 128-bit group strip (8 × 16-bit hextets), colour-coded
+   • Step-by-step compression pipeline: full → strip → collapse → final
+   • Side-by-side before/after comparison
+   • Address type badge (global unicast, link-local, multicast, loopback, etc.)
+   • Scope & prefix breakdown table
+   • 5 preset addresses + custom input
    ========================================================================== */
 
 (function (NetSim) {
   'use strict';
 
+  /* ── helpers ─────────────────────────────────────────────────────────── */
   function parseFull(str) {
-    const groups = str.split(':');
+    var groups = str.split(':');
     if (groups.length !== 8) return null;
-    if (groups.some((g) => !/^[0-9a-fA-F]{1,4}$/.test(g))) return null;
-    return groups.map((g) => g.toLowerCase().padStart(4, '0'));
+    for (var i = 0; i < 8; i++) {
+      if (!/^[0-9a-fA-F]{1,4}$/.test(groups[i])) return null;
+    }
+    var out = [];
+    for (var i = 0; i < 8; i++) {
+      var g = groups[i].toLowerCase();
+      while (g.length < 4) g = '0' + g;
+      out.push(g);
+    }
+    return out;
   }
 
-  function stripLeadingZeros(groups) {
-    return groups.map((g) => g.replace(/^0+(?=.)/, ''));
+  function stripLeading(groups) {
+    var out = [];
+    for (var i = 0; i < groups.length; i++) {
+      out.push(groups[i].replace(/^0+(?=.)/, ''));
+    }
+    return out;
   }
 
-  function findLongestZeroRun(groups) {
-    let bestStart = -1, bestLen = 0, curStart = -1, curLen = 0;
-    groups.forEach((g, i) => {
-      if (g === '0') {
-        if (curStart === -1) curStart = i;
-        curLen++;
-        if (curLen > bestLen) { bestLen = curLen; bestStart = curStart; }
-      } else {
-        curStart = -1; curLen = 0;
-      }
-    });
-    return bestLen > 1 ? { start: bestStart, len: bestLen } : null;
+  function findLongestRun(groups) {
+    var bestS = -1, bestL = 0, curS = -1, curL = 0;
+    for (var i = 0; i < groups.length; i++) {
+      if (groups[i] === '0') {
+        if (curS === -1) curS = i;
+        curL++;
+        if (curL > bestL) { bestL = curL; bestS = curS; }
+      } else { curS = -1; curL = 0; }
+    }
+    return bestL > 1 ? { s: bestS, l: bestL } : null;
   }
 
-  function compress(groupsStripped) {
-    const run = findLongestZeroRun(groupsStripped);
-    if (!run) return groupsStripped.join(':');
-    const before = groupsStripped.slice(0, run.start).join(':');
-    const after = groupsStripped.slice(run.start + run.len).join(':');
-    return before + '::' + after;
+  function compress(stripped) {
+    var run = findLongestRun(stripped);
+    if (!run) return stripped.join(':');
+    var before = [];
+    for (var i = 0; i < run.s; i++) before.push(stripped[i]);
+    var after = [];
+    for (var i = run.s + run.l; i < stripped.length; i++) after.push(stripped[i]);
+    return before.join(':') + '::' + after.join(':');
   }
+
+  function addrType(full) {
+    var first = full[0];
+    if (first === '0000' && full[1] === '0000' && full[2] === '0000' && full[3] === '0000' &&
+        full[4] === '0000' && full[5] === '0000' && full[6] === '0000') {
+      if (full[7] === '0001') return { type: 'Loopback (::1)', scope: 'Node', col: '#ef5350' };
+      if (full[7] === '0000') return { type: 'Unspecified (::)', scope: 'N/A', col: '#90a4ae' };
+    }
+    if (first.substring(0, 3) === 'fe8') return { type: 'Link-Local', scope: 'Link', col: '#42a5f5' };
+    if (first.substring(0, 2) === 'fc' || first.substring(0, 2) === 'fd')
+      return { type: 'Unique Local (ULA)', scope: 'Organisation', col: '#66bb6a' };
+    if (first.substring(0, 2) === 'ff') return { type: 'Multicast', scope: 'Variable', col: '#ab47bc' };
+    if (first === '2001' && full[1] === '0db8') return { type: 'Documentation (2001:db8::/32)', scope: 'N/A', col: '#ffa726' };
+    return { type: 'Global Unicast', scope: 'Global', col: '#0097a7' };
+  }
+
+  /* ── presets ─────────────────────────────────────────────────────────── */
+  var PRESETS = [
+    { label: '2001:0db8:0000:0000:0000:ff00:0042:8329', tag: 'Documentation' },
+    { label: 'fe80:0000:0000:0000:0202:b3ff:fe1e:8329', tag: 'Link-Local' },
+    { label: '2001:0db8:85a3:0000:0000:8a2e:0370:7334', tag: 'Global Unicast' },
+    { label: 'ff02:0000:0000:0000:0000:0000:0000:0001', tag: 'Multicast All-Nodes' },
+    { label: '0000:0000:0000:0000:0000:0000:0000:0001', tag: 'Loopback' }
+  ];
+
+  var C_ZERO = '#ef5350';
+  var C_NORM = '#0097a7';
 
   NetSim.SimRegistry.register('ipv6', function factory(ctx) {
-    let addrStr = '2001:0db8:0000:0000:0000:ff00:0042:8329';
-    let phases = [];
-    let index = -1;
-    let timer = null;
-    let host = null;
-    let info = null;
+    var addrStr = PRESETS[0].label;
+    var preIdx  = 0;
+    var phases  = [];
+    var index   = -1;
+    var timer   = null;
+    var mount   = null;
+    var info    = null;
 
-    function buildPhases() {
-      const full = parseFull(addrStr);
-      if (!full) {
-        info = null;
-        return [{ text: 'That doesn\u2019t look like a full IPv6 address \u2014 enter 8 groups of up to 4 hex digits, separated by colons.', level: 'error' }];
-      }
-      const stripped = stripLeadingZeros(full);
-      const compressed = compress(stripped);
-      info = { full, stripped, compressed };
-      return [
-        { text: 'Full 128-bit address, 8 groups of 16 bits each: ' + full.join(':'), view: 'full' },
-        { text: 'Strip leading zeros within each group (0db8 \u2192 db8, 0000 \u2192 0, 0042 \u2192 42): ' + stripped.join(':'), view: 'stripped' },
-        { text: 'Find the longest run of consecutive all-zero groups and replace it with "::" (only once, and only if it\u2019s more than one group):', view: 'findrun' },
-        { text: 'Compressed form: ' + compressed, view: 'compressed', level: 'success' },
-        { text: 'Expanding "' + compressed + '" back out reproduces the exact same full address \u2014 the compression is lossless.', view: 'roundtrip', level: 'success' }
-      ];
+    /* ── analysis ──────────────────────────────────────────────────────── */
+    function analyse() {
+      var full = parseFull(addrStr);
+      if (!full) return null;
+      var stripped = stripLeading(full);
+      var compressed = compress(stripped);
+      var run = findLongestRun(stripped);
+      var at = addrType(full);
+      return { full: full, stripped: stripped, compressed: compressed, run: run, at: at };
     }
 
-    function draw() {
-      const phase = phases[Math.max(0, index)];
-      let body = '';
-      if (!info) {
-        body = `<p class="net-hint">${phase.text}</p>`;
-      } else if (phase.view === 'full' || !phase.view) {
-        body = `<div class="bitgrid">${info.full.map((g) => `<span class="bitbox" style="width:auto;padding:0 0.5rem;">${g}</span>`).join('')}</div>`;
-      } else if (phase.view === 'stripped') {
-        body = `<div class="bitgrid">${info.stripped.map((g) => `<span class="bitbox is-active" style="width:auto;padding:0 0.5rem;">${g}</span>`).join('')}</div>`;
+    function buildPhases() {
+      info = analyse();
+      if (!info) return [{ t: 'Invalid full IPv6 address — enter 8 groups of 1–4 hex digits separated by colons.', lv: 'error', v: 'err' }];
+      var p = [];
+      p.push({ t: 'Full 128-bit address (8 × 16-bit groups): ' + info.full.join(':'), v: 'full' });
+      p.push({ t: 'Step 1 — Strip leading zeros in each group: ' + info.stripped.join(':'), v: 'strip' });
+      if (info.run) {
+        p.push({ t: 'Step 2 — Longest run of all-zero groups: position ' + info.run.s + '–' + (info.run.s + info.run.l - 1) + ' (' + info.run.l + ' groups).', v: 'run' });
+        p.push({ t: 'Step 3 — Replace that run with "::"  →  ' + info.compressed, v: 'comp', lv: 'success' });
       } else {
-        const run = findLongestZeroRun(info.stripped);
-        body = `<div class="bitgrid">${info.stripped.map((g, i) => {
-          const inRun = run && i >= run.start && i < run.start + run.len;
-          return `<span class="bitbox ${inRun ? 'is-error' : 'is-active'}" style="width:auto;padding:0 0.5rem;">${g}</span>`;
-        }).join('')}</div>
-        <p class="net-hint" style="margin-top:0.5rem;">\u2192 <strong>${info.compressed}</strong></p>`;
+        p.push({ t: 'Step 2 — No consecutive all-zero groups longer than 1 to collapse.', v: 'run', lv: 'warning' });
+        p.push({ t: 'Compressed form (leading-zero stripping only): ' + info.compressed, v: 'comp', lv: 'success' });
       }
-      host.innerHTML = `<div class="crc-stage">${body}</div>`;
+      p.push({ t: 'Address type: ' + info.at.type + '  |  Scope: ' + info.at.scope, v: 'type', lv: 'success' });
+      return p;
+    }
+
+    /* ── SVG group strip ──────────────────────────────────────────────── */
+    function svgGroups() {
+      if (!info) return '';
+      var gw = 76, gh = 40, gap = 6, pad = 10;
+      var totalW = 8 * gw + 7 * gap + 2 * pad;
+      var H = 68;
+      var html = '<svg class="ip6-svg" viewBox="0 0 ' + totalW + ' ' + H + '" preserveAspectRatio="xMidYMid meet">';
+
+      var showStripped = index >= 1;
+      var showRun      = index >= 2;
+      var groups = showStripped ? info.stripped : info.full;
+
+      for (var i = 0; i < 8; i++) {
+        var x = pad + i * (gw + gap);
+        var isZero = info.stripped[i] === '0';
+        var inRun  = showRun && info.run && i >= info.run.s && i < info.run.s + info.run.l;
+        var fill   = inRun ? C_ZERO + '22' : (isZero && showStripped ? '#fff3e0' : '#e0f7fa');
+        var stroke = inRun ? C_ZERO : C_NORM;
+        html += '<rect x="' + x + '" y="4" width="' + gw + '" height="' + gh + '" rx="4" fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + (inRun ? 2 : 1) + '"/>';
+        html += '<text x="' + (x + gw / 2) + '" y="29" text-anchor="middle" font-family="var(--f-mono)" font-size="12" fill="var(--ink)">' + groups[i] + '</text>';
+        /* group index label */
+        html += '<text x="' + (x + gw / 2) + '" y="58" text-anchor="middle" font-size="9" fill="var(--ink-faint)">G' + (i + 1) + '</text>';
+      }
+
+      html += '</svg>';
+      return html;
+    }
+
+    /* ── comparison box ───────────────────────────────────────────────── */
+    function compBox() {
+      if (!info || index < 3) return '';
+      var html = '<div class="ip6-compare">';
+      html += '<div class="ip6-cmp-row"><span class="ip6-cmp-lbl">Full</span><span class="ip6-cmp-val">' + info.full.join(':') + '</span></div>';
+      html += '<div class="ip6-cmp-row"><span class="ip6-cmp-lbl">Compressed</span><span class="ip6-cmp-val ip6-cmp-hl">' + info.compressed + '</span></div>';
+      html += '<div class="ip6-cmp-row"><span class="ip6-cmp-lbl">Savings</span><span class="ip6-cmp-val">' + (info.full.join(':').length - info.compressed.length) + ' characters shorter</span></div>';
+      html += '</div>';
+      return html;
+    }
+
+    /* ── type badge ───────────────────────────────────────────────────── */
+    function typeBadge() {
+      if (!info || index < 4) return '';
+      return '<div class="ip6-type-badge" style="border-color:' + info.at.col + ';color:' + info.at.col + ';">' +
+        '<strong>' + info.at.type + '</strong> &nbsp;·&nbsp; Scope: ' + info.at.scope +
+        '</div>';
+    }
+
+    /* ── draw ──────────────────────────────────────────────────────────── */
+    function draw() {
+      var phase = phases[Math.max(0, index)];
+      var html = '';
+      if (phase.v === 'err') {
+        html = '<p class="ip6-err">' + phase.t + '</p>';
+      } else {
+        html = svgGroups() + compBox() + typeBadge();
+      }
+      mount.innerHTML = html;
 
       if (info) {
         ctx.setMetrics([
           { label: 'Full Address', value: info.full.join(':') },
           { label: 'Compressed', value: info.compressed },
-          { label: 'Groups Collapsed', value: String((findLongestZeroRun(info.stripped) || { len: 0 }).len) },
+          { label: 'Groups Collapsed', value: info.run ? String(info.run.l) : '0' },
+          { label: 'Char Savings', value: String(info.full.join(':').length - info.compressed.length) },
+          { label: 'Type', value: info.at.type },
           { label: 'Total Bits', value: '128' }
         ]);
       }
     }
 
+    /* ── params ────────────────────────────────────────────────────────── */
     function renderParams() {
       ctx.params.hidden = false;
-      ctx.params.innerHTML = `
-        <div class="switch-text-row">
-          <label for="ipv6Input">Full IPv6 address (8 groups)</label>
-          <input type="text" id="ipv6Input" maxlength="40" value="${addrStr}">
-        </div>
-        <p style="font-size:0.78rem;color:var(--ink-faint);margin-top:0.4rem;">Try 2001:0db8:0000:0000:0000:ff00:0042:8329
-        or fe80:0000:0000:0000:0202:b3ff:fe1e:8329</p>
-      `;
-      ctx.params.querySelector('#ipv6Input').addEventListener('change', (e) => {
-        addrStr = e.target.value.trim() || '2001:0db8:0000:0000:0000:ff00:0042:8329';
+      var html = '<div class="ip6-presets">';
+      for (var i = 0; i < PRESETS.length; i++) {
+        html += '<label class="switch-mode-option' + (i === preIdx ? ' is-checked' : '') + '">' +
+          '<input type="radio" name="ip6pre" value="' + i + '"' + (i === preIdx ? ' checked' : '') + '> ' +
+          '<strong style="font-size:0.72rem;">' + PRESETS[i].label + '</strong><br><span style="font-size:0.68rem;color:var(--ink-faint);">' + PRESETS[i].tag + '</span>' +
+          '</label>';
+      }
+      html += '</div>';
+      html += '<div class="ip6-custom"><label>Custom (8 groups, colon-separated)</label>' +
+        '<input type="text" id="ip6Input" maxlength="39" value="' + addrStr + '"></div>';
+      ctx.params.innerHTML = html;
+
+      var radios = ctx.params.querySelectorAll('input[name="ip6pre"]');
+      for (var i = 0; i < radios.length; i++) {
+        radios[i].addEventListener('change', function (e) {
+          preIdx = parseInt(e.target.value, 10);
+          addrStr = PRESETS[preIdx].label;
+          rebuild();
+        });
+      }
+      ctx.params.querySelector('#ip6Input').addEventListener('change', function (e) {
+        addrStr = e.target.value.trim() || PRESETS[0].label;
+        preIdx = -1;
         rebuild();
       });
     }
 
+    /* ── lifecycle ─────────────────────────────────────────────────────── */
     function rebuild() {
-      stop();
-      index = -1;
+      stop(); index = -1;
       phases = buildPhases();
-      renderParams();
-      draw();
+      renderParams(); draw();
       ctx.log('Ready to compress ' + addrStr + '.');
     }
 
@@ -125,23 +234,28 @@
 
     function advance() {
       if (index >= phases.length - 1) { stop(); return; }
-      index += 1;
-      ctx.log(phases[index].text, phases[index].level);
+      index++;
+      ctx.log(phases[index].t, phases[index].lv);
       draw();
     }
 
     return {
-      initialize() {
-        ctx.canvas.classList.add('net-canvas');
-        ctx.canvas.innerHTML = '<div class="ipv6-mount"></div>';
-        host = ctx.canvas.querySelector('.ipv6-mount');
+      initialize: function () {
+        ctx.canvas.innerHTML = '<div class="ip6-mount"></div>';
+        mount = ctx.canvas.querySelector('.ip6-mount');
         rebuild();
       },
-      start() { if (timer) return; timer = NetSim.SimTiming.setInterval(() => { if (index >= phases.length - 1) { stop(); return; } advance(); }, 900); },
-      pause() { stop(); },
-      step() { stop(); advance(); },
-      reset() { rebuild(); },
-      destroy() { stop(); }
+      start: function () {
+        if (timer) return;
+        timer = NetSim.SimTiming.setInterval(function () {
+          if (index >= phases.length - 1) { stop(); return; }
+          advance();
+        }, 900);
+      },
+      pause: function () { stop(); },
+      step:  function () { stop(); advance(); },
+      reset: function () { rebuild(); },
+      destroy: function () { stop(); }
     };
   });
 

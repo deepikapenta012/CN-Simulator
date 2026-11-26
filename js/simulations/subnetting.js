@@ -1,127 +1,262 @@
 /* ==========================================================================
-   NetSim — simulations/subnetting.js
-   Real subnet math: borrow just enough bits to fit the requested number
-   of subnets, then compute every subnet's network address, usable host
-   range and broadcast address from actual 32-bit integer arithmetic.
+   NetSim — simulations/subnetting.js   (rebuilt)
+   Interactive subnetting calculator with:
+   • SVG 32-bit address strip — original mask, borrowed bits, host bits
+   • Visual subnet map (colour-coded blocks)
+   • Per-subnet detail cards (network, first/last host, broadcast)
+   • Address utilisation bar
+   • 4 presets + custom base/prefix/count controls
    ========================================================================== */
 
 (function (NetSim) {
   'use strict';
 
+  /* ── helpers ─────────────────────────────────────────────────────────── */
   function ipToInt(ip) {
-    const parts = ip.split('.').map(Number);
-    if (parts.length !== 4 || parts.some((n) => isNaN(n) || n < 0 || n > 255)) return null;
-    return ((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0;
+    var p = ip.split('.');
+    if (p.length !== 4) return null;
+    var n = 0;
+    for (var i = 0; i < 4; i++) {
+      var v = parseInt(p[i], 10);
+      if (isNaN(v) || v < 0 || v > 255) return null;
+      n = (n * 256 + v) >>> 0;
+    }
+    return n;
   }
+
   function intToIp(n) {
     return [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join('.');
   }
 
-  NetSim.SimRegistry.register('subnetting', function factory(ctx) {
-    let baseIp = '192.168.1.0';
-    let basePrefix = 24;
-    let numSubnets = 4;
-    let phases = [];
-    let index = -1;
-    let timer = null;
-    let host = null;
-    let info = null;
+  function maskStr(bits) {
+    var m = [];
+    for (var i = 0; i < 4; i++) {
+      var b = Math.min(8, Math.max(0, bits));
+      m.push(b === 8 ? 255 : b > 0 ? 256 - Math.pow(2, 8 - b) : 0);
+      bits -= 8;
+    }
+    return m.join('.');
+  }
 
+  /* ── presets ─────────────────────────────────────────────────────────── */
+  var PRESETS = [
+    { label: '192.168.1.0/24 ÷ 4', base: '192.168.1.0', pfx: 24, num: 4, tag: 'Class C → 4 subnets' },
+    { label: '10.0.0.0/8 ÷ 4',      base: '10.0.0.0',    pfx: 8,  num: 4, tag: 'Class A → 4 subnets' },
+    { label: '172.16.0.0/16 ÷ 8',   base: '172.16.0.0',   pfx: 16, num: 8, tag: 'Class B → 8 subnets' },
+    { label: '192.168.10.0/24 ÷ 2',  base: '192.168.10.0', pfx: 24, num: 2, tag: 'Simple bisection' }
+  ];
+
+  var COLS = ['#42a5f5', '#66bb6a', '#ffa726', '#ab47bc', '#ef5350', '#26c6da', '#ec407a', '#8d6e63',
+              '#5c6bc0', '#9ccc65', '#ffca28', '#78909c', '#7e57c2', '#29b6f6', '#d4e157', '#ff7043'];
+
+  NetSim.SimRegistry.register('subnetting', function factory(ctx) {
+    var baseIp     = PRESETS[0].base;
+    var basePrefix = PRESETS[0].pfx;
+    var numSubnets = PRESETS[0].num;
+    var preIdx     = 0;
+    var phases     = [];
+    var index      = -1;
+    var timer      = null;
+    var mount      = null;
+    var info       = null;
+
+    /* ── compute ──────────────────────────────────────────────────────── */
     function compute() {
-      const baseInt = ipToInt(baseIp);
-      if (baseInt == null) return null;
-      const bitsAvailable = 32 - basePrefix;
-      const bitsNeeded = Math.max(1, Math.ceil(Math.log2(Math.max(2, numSubnets))));
-      if (bitsNeeded > bitsAvailable) return { error: 'Not enough host bits in /' + basePrefix + ' to create ' + numSubnets + ' subnets.' };
-      const newPrefix = basePrefix + bitsNeeded;
-      const subnetSize = Math.pow(2, 32 - newPrefix);
-      const maxPossible = Math.pow(2, bitsNeeded);
-      const subnets = [];
-      for (let i = 0; i < Math.min(numSubnets, maxPossible); i++) {
-        const netInt = (baseInt + i * subnetSize) >>> 0;
-        subnets.push({
-          network: intToIp(netInt) + '/' + newPrefix,
-          firstHost: intToIp(netInt + 1),
-          lastHost: intToIp(netInt + subnetSize - 2),
-          broadcast: intToIp(netInt + subnetSize - 1)
+      var baseInt = ipToInt(baseIp);
+      if (baseInt === null) return { error: 'Invalid base IP address.' };
+      var avail = 32 - basePrefix;
+      var needed = Math.max(1, Math.ceil(Math.log(Math.max(2, numSubnets)) / Math.LN2));
+      if (needed > avail) return { error: 'Not enough host bits in /' + basePrefix + ' to carve ' + numSubnets + ' subnets (' + avail + ' available, need ' + needed + ').' };
+      var newPfx = basePrefix + needed;
+      var subSize = Math.pow(2, 32 - newPfx);
+      var maxPoss = Math.pow(2, needed);
+      var subs = [];
+      for (var i = 0; i < Math.min(numSubnets, maxPoss); i++) {
+        var net = (baseInt + i * subSize) >>> 0;
+        subs.push({
+          network:   intToIp(net) + '/' + newPfx,
+          netAddr:   intToIp(net),
+          first:     intToIp(net + 1),
+          last:      intToIp(net + subSize - 2),
+          broadcast: intToIp(net + subSize - 1),
+          col: COLS[i % COLS.length]
         });
       }
-      return { bitsNeeded, newPrefix, subnetSize, usableHosts: subnetSize - 2, subnets };
+      return { needed: needed, newPfx: newPfx, subSize: subSize,
+               usable: subSize - 2, subs: subs, maxPoss: maxPoss,
+               totalAddrs: Math.pow(2, 32 - basePrefix) };
     }
 
     function buildPhases() {
       info = compute();
-      if (!info) return [{ text: 'That doesn\u2019t look like a valid base network address.', level: 'error' }];
-      if (info.error) return [{ text: info.error, level: 'error' }];
-      const p = [];
-      p.push({ text: 'Base network: ' + baseIp + '/' + basePrefix + '. Need ' + numSubnets + ' subnet(s).', view: 'base' });
-      p.push({ text: 'Bits needed: smallest B where 2^B \u2265 ' + numSubnets + ' \u2192 B = ' + info.bitsNeeded + '. New prefix = /' + basePrefix + ' + ' + info.bitsNeeded + ' = /' + info.newPrefix + '.', view: 'bits' });
-      p.push({ text: 'Each subnet holds 2^(32\u2212' + info.newPrefix + ') = ' + info.subnetSize + ' addresses (' + info.usableHosts + ' usable hosts after network + broadcast).', view: 'size' });
-      info.subnets.forEach((s, i) => {
-        p.push({ text: 'Subnet ' + (i + 1) + ': ' + s.network + ' \u2014 usable hosts ' + s.firstHost + '\u2013' + s.lastHost + ', broadcast ' + s.broadcast, view: 'subnet', idx: i });
-      });
+      if (info.error) return [{ t: info.error, lv: 'error', v: 'err' }];
+      var p = [];
+      p.push({ t: 'Base network: ' + baseIp + '/' + basePrefix + '  (' + info.totalAddrs + ' addresses).  Need ' + numSubnets + ' subnet(s).', v: 'base' });
+      p.push({ t: 'Borrow ' + info.needed + ' bit(s) from the host portion:  /' + basePrefix + ' + ' + info.needed + ' = /' + info.newPfx + '.', v: 'borrow' });
+      p.push({ t: 'Each subnet: ' + info.subSize + ' addresses (' + info.usable + ' usable hosts).  Subnet mask: ' + maskStr(info.newPfx) + '.', v: 'size' });
+      for (var i = 0; i < info.subs.length; i++) {
+        var s = info.subs[i];
+        p.push({ t: 'Subnet ' + (i + 1) + ': ' + s.network + '  hosts ' + s.first + ' – ' + s.last + '  bcast ' + s.broadcast, v: 'sub', idx: i });
+      }
+      p.push({ t: 'All ' + numSubnets + ' subnets carved.  ' + (info.maxPoss > numSubnets ? (info.maxPoss - numSubnets) + ' more possible with /' + info.newPfx + '.' : 'No wasted subnet slots.'), v: 'done', lv: 'success' });
       return p;
     }
 
+    /* ── SVG bit strip ────────────────────────────────────────────────── */
+    function svgBitStrip() {
+      if (!info || info.error) return '';
+      var cellW = 18, cellH = 26, gap = 1, pad = 10;
+      var W = pad * 2 + 32 * (cellW + gap);
+      var H = 65;
+      var showBorrow = index >= 1;
+
+      var html = '<svg class="sub-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet">';
+
+      for (var b = 0; b < 32; b++) {
+        var x = pad + b * (cellW + gap);
+        var fill, stroke, label;
+        if (b < basePrefix) {
+          fill = '#0097a722'; stroke = '#0097a7'; label = 'N';
+        } else if (showBorrow && b < info.newPfx) {
+          fill = '#f9a82533'; stroke = '#f9a825'; label = 'S';
+        } else {
+          fill = '#fff'; stroke = '#ccc'; label = 'H';
+        }
+        html += '<rect x="' + x + '" y="6" width="' + cellW + '" height="' + cellH + '" rx="3" fill="' + fill + '" stroke="' + stroke + '" stroke-width="1.2"/>';
+        html += '<text x="' + (x + cellW / 2) + '" y="24" text-anchor="middle" font-size="10" font-family="var(--f-mono)" fill="var(--ink)">' + label + '</text>';
+      }
+
+      /* legend */
+      var items = [
+        { col: '#0097a7', lab: 'Network (' + basePrefix + ')' },
+        { col: '#f9a825', lab: 'Subnet (' + info.needed + ')' },
+        { col: '#ccc', lab: 'Host (' + (32 - info.newPfx) + ')' }
+      ];
+      var lx = pad;
+      for (var i = 0; i < items.length; i++) {
+        html += '<rect x="' + lx + '" y="42" width="10" height="10" rx="2" fill="' + items[i].col + '44" stroke="' + items[i].col + '" stroke-width="1"/>';
+        html += '<text x="' + (lx + 14) + '" y="51" font-size="9" fill="var(--ink)">' + items[i].lab + '</text>';
+        lx += 14 + items[i].lab.length * 5.5 + 16;
+      }
+
+      html += '</svg>';
+      return html;
+    }
+
+    /* ── subnet map (coloured blocks) ─────────────────────────────────── */
+    function subnetMap() {
+      if (!info || info.error || index < 2) return '';
+      var revealed = 0;
+      for (var i = 0; i <= index && i < phases.length; i++) {
+        if (phases[i].v === 'sub') revealed++;
+      }
+      if (revealed === 0) return '';
+
+      var W = 640, blockH = 24, gap = 3, pad = 10;
+      var H = pad * 2 + revealed * (blockH + gap);
+      var html = '<svg class="sub-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet">';
+
+      for (var i = 0; i < revealed; i++) {
+        var s = info.subs[i];
+        var y = pad + i * (blockH + gap);
+        var w = W - 2 * pad;
+        html += '<rect x="' + pad + '" y="' + y + '" width="' + w + '" height="' + blockH + '" rx="4" fill="' + s.col + '33" stroke="' + s.col + '" stroke-width="1.5"/>';
+        var txt = 'Subnet ' + (i + 1) + ': ' + s.network + '   ' + s.first + ' – ' + s.last + '   bcast ' + s.broadcast;
+        html += '<text x="' + (pad + 8) + '" y="' + (y + blockH / 2 + 4) + '" font-size="10" font-family="var(--f-mono)" fill="var(--ink)">' + txt + '</text>';
+      }
+
+      html += '</svg>';
+      return html;
+    }
+
+    /* ── utilisation bar ──────────────────────────────────────────────── */
+    function utilBar() {
+      if (!info || info.error || index < phases.length - 1) return '';
+      var used = numSubnets * info.subSize;
+      var total = info.totalAddrs;
+      var pct = Math.round((used / total) * 100);
+      var html = '<div class="sub-util">';
+      html += '<div class="sub-util-label">Address utilisation: ' + used + ' / ' + total + ' (' + pct + '%)</div>';
+      html += '<div class="sub-util-track"><div class="sub-util-fill" style="width:' + pct + '%;"></div></div>';
+      html += '</div>';
+      return html;
+    }
+
+    /* ── draw ──────────────────────────────────────────────────────────── */
     function draw() {
-      const phase = phases[Math.max(0, index)];
-      if (!info || info.error) {
-        host.innerHTML = `<p class="net-hint">${phase.text}</p>`;
+      var phase = phases[Math.max(0, index)];
+      if (phase.v === 'err') {
+        mount.innerHTML = '<p class="sub-err">' + phase.t + '</p>';
         ctx.setMetrics([]);
         return;
       }
-      const revealedCount = phases.slice(0, index + 1).filter((p) => p.view === 'subnet').length;
-      host.innerHTML = `
-        <div style="overflow-x:auto;">
-          <table class="compare-table">
-            <thead><tr><th>#</th><th>Network</th><th>Usable Hosts</th><th>Broadcast</th></tr></thead>
-            <tbody>
-              ${info.subnets.map((s, i) => i < revealedCount ? `
-                <tr class="${i === revealedCount - 1 ? 'highlight' : ''}">
-                  <td>${i + 1}</td><td class="mono">${s.network}</td><td class="mono">${s.firstHost}\u2013${s.lastHost}</td><td class="mono">${s.broadcast}</td>
-                </tr>
-              ` : '').join('')}
-            </tbody>
-          </table>
-        </div>
-      `;
+      mount.innerHTML = svgBitStrip() + subnetMap() + utilBar();
+
+      var revealed = 0;
+      for (var i = 0; i <= index && i < phases.length; i++) {
+        if (phases[i].v === 'sub') revealed++;
+      }
       ctx.setMetrics([
         { label: 'Base Network', value: baseIp + '/' + basePrefix },
-        { label: 'New Prefix', value: '/' + info.newPrefix },
-        { label: 'Bits Borrowed', value: String(info.bitsNeeded) },
-        { label: 'Addresses per Subnet', value: String(info.subnetSize) },
-        { label: 'Usable Hosts per Subnet', value: String(info.usableHosts) },
-        { label: 'Subnets Shown', value: revealedCount + ' / ' + info.subnets.length }
+        { label: 'New Prefix', value: '/' + info.newPfx },
+        { label: 'Bits Borrowed', value: String(info.needed) },
+        { label: 'Subnet Mask', value: maskStr(info.newPfx) },
+        { label: 'Addresses / Subnet', value: String(info.subSize) },
+        { label: 'Usable Hosts', value: String(info.usable) },
+        { label: 'Subnets Shown', value: revealed + ' / ' + info.subs.length }
       ]);
     }
 
+    /* ── params ────────────────────────────────────────────────────────── */
     function renderParams() {
       ctx.params.hidden = false;
-      ctx.params.innerHTML = `
-        <div class="switch-text-row">
-          <label for="subBase">Base network</label>
-          <input type="text" id="subBase" maxlength="18" value="${baseIp}/${basePrefix}">
-        </div>
-        <div class="sim-param-row"><label for="subCount">Number of Subnets</label>
-          <input type="range" id="subCount" min="2" max="16" step="1" value="${numSubnets}">
-          <span class="val" id="subCountVal">${numSubnets}</span></div>
-      `;
-      ctx.params.querySelector('#subBase').addEventListener('change', (e) => {
-        const [ip, prefixStr] = e.target.value.trim().split('/');
-        baseIp = ip || '192.168.1.0';
-        basePrefix = Math.min(30, Math.max(8, parseInt(prefixStr, 10) || 24));
-        rebuild();
+      var html = '<div class="sub-presets">';
+      for (var i = 0; i < PRESETS.length; i++) {
+        html += '<label class="switch-mode-option' + (i === preIdx ? ' is-checked' : '') + '">' +
+          '<input type="radio" name="subpre" value="' + i + '"' + (i === preIdx ? ' checked' : '') + '> ' +
+          '<strong>' + PRESETS[i].label + '</strong><br><span style="font-size:0.72rem;color:var(--ink-faint);">' + PRESETS[i].tag + '</span>' +
+          '</label>';
+      }
+      html += '</div>';
+      html += '<div class="sub-custom">';
+      html += '<div class="sim-param-row"><label>Base Network</label><input type="text" id="subBase" maxlength="18" value="' + baseIp + '/' + basePrefix + '"></div>';
+      html += '<div class="sim-param-row"><label>Subnets Needed</label>' +
+        '<input type="range" id="subCount" min="2" max="16" step="1" value="' + numSubnets + '">' +
+        '<span class="val" id="subCountVal">' + numSubnets + '</span></div>';
+      html += '</div>';
+      ctx.params.innerHTML = html;
+
+      var radios = ctx.params.querySelectorAll('input[name="subpre"]');
+      for (var i = 0; i < radios.length; i++) {
+        radios[i].addEventListener('change', function (e) {
+          preIdx = parseInt(e.target.value, 10);
+          baseIp = PRESETS[preIdx].base;
+          basePrefix = PRESETS[preIdx].pfx;
+          numSubnets = PRESETS[preIdx].num;
+          rebuild();
+        });
+      }
+      ctx.params.querySelector('#subBase').addEventListener('change', function (e) {
+        var parts = e.target.value.trim().split('/');
+        baseIp = parts[0] || '192.168.1.0';
+        basePrefix = Math.min(30, Math.max(8, parseInt(parts[1], 10) || 24));
+        preIdx = -1; rebuild();
       });
-      ctx.params.querySelector('#subCount').addEventListener('change', (e) => { numSubnets = parseInt(e.target.value, 10); rebuild(); });
-      ctx.params.querySelector('#subCount').addEventListener('input', (e) => { ctx.params.querySelector('#subCountVal').textContent = e.target.value; });
+      var slider = ctx.params.querySelector('#subCount');
+      slider.addEventListener('input', function (e) {
+        ctx.params.querySelector('#subCountVal').textContent = e.target.value;
+      });
+      slider.addEventListener('change', function (e) {
+        numSubnets = parseInt(e.target.value, 10);
+        preIdx = -1; rebuild();
+      });
     }
 
+    /* ── lifecycle ─────────────────────────────────────────────────────── */
     function rebuild() {
-      stop();
-      index = -1;
+      stop(); index = -1;
       phases = buildPhases();
-      renderParams();
-      draw();
+      renderParams(); draw();
       ctx.log('Ready to split ' + baseIp + '/' + basePrefix + ' into ' + numSubnets + ' subnets.');
     }
 
@@ -129,23 +264,28 @@
 
     function advance() {
       if (index >= phases.length - 1) { stop(); return; }
-      index += 1;
-      ctx.log(phases[index].text, phases[index].level);
+      index++;
+      ctx.log(phases[index].t, phases[index].lv);
       draw();
     }
 
     return {
-      initialize() {
-        ctx.canvas.classList.add('net-canvas');
-        ctx.canvas.innerHTML = '<div class="subnet-mount"></div>';
-        host = ctx.canvas.querySelector('.subnet-mount');
+      initialize: function () {
+        ctx.canvas.innerHTML = '<div class="sub-mount"></div>';
+        mount = ctx.canvas.querySelector('.sub-mount');
         rebuild();
       },
-      start() { if (timer) return; timer = NetSim.SimTiming.setInterval(() => { if (index >= phases.length - 1) { stop(); return; } advance(); }, 600); },
-      pause() { stop(); },
-      step() { stop(); advance(); },
-      reset() { rebuild(); },
-      destroy() { stop(); }
+      start: function () {
+        if (timer) return;
+        timer = NetSim.SimTiming.setInterval(function () {
+          if (index >= phases.length - 1) { stop(); return; }
+          advance();
+        }, 700);
+      },
+      pause: function () { stop(); },
+      step:  function () { stop(); advance(); },
+      reset: function () { rebuild(); },
+      destroy: function () { stop(); }
     };
   });
 

@@ -1,131 +1,200 @@
 /* ==========================================================================
-   NetSim — simulations/icmp.js
-   Two tabs on the same shared topology (A-R1-R2/R3-R4-B):
-   - Ping: Echo Request / Echo Reply round trip.
-   - Traceroute: real TTL-expiry hop discovery — each probe's TTL limits
-     how far it gets before an intermediate router sends back a genuine
-     ICMP Time Exceeded message, one more hop revealed each round.
+   NetSim — simulations/icmp.js   (rebuilt)
+   ICMP Ping & Traceroute with:
+   • SVG network path diagram (A → R1 → R2 → R3 → B) with animated probe
+   • Ping mode: Echo Request/Reply with RTT calculation
+   • Traceroute mode: TTL-expiry hop discovery, hop table built step-by-step
+   • ICMP packet type/code breakdown panel
+   • Mode toggle (Ping vs Traceroute)
    ========================================================================== */
 
 (function (NetSim) {
   'use strict';
 
+  var PATH_NODES = ['A', 'R1', 'R2', 'R3', 'B'];
+  var HOP_DELAYS = [12, 15, 18, 10];   /* per-hop RTT contribution */
+
   NetSim.SimRegistry.register('icmp', function factory(ctx) {
-    let mode = 'ping';
-    let network = null;
-    let path = null;
-    let state = null;
-    let steps = [];
-    let index = -1;
-    let timer = null;
+    var mode   = 'ping';
+    var steps  = [];
+    var index  = -1;
+    var timer  = null;
+    var mount  = null;
 
-    function buildTopologyState() {
-      const topo = NetSim.Core.Network.createTopology();
-      path = NetSim.Core.Network.computePath(topo.links, 'A', 'B', new Set());
-      return { mode: 'icmp', links: topo.links, entities: [], done: false };
-    }
-
+    /* ── build steps ──────────────────────────────────────────────────── */
     function buildPingSteps() {
-      const hops = path.links.length;
-      const rtt = hops * 22;
+      var totalRtt = 0;
+      for (var i = 0; i < HOP_DELAYS.length; i++) totalRtt += HOP_DELAYS[i];
+      totalRtt *= 2;
       return [
-        { text: 'A sends an ICMP Echo Request toward B.', atNode: 'A', dir: 'out' },
-        { text: 'The request travels ' + hops + ' hop(s): ' + path.nodes.join(' \u2192 ') + '.', atNode: 'B', dir: 'out' },
-        { text: 'B replies with an ICMP Echo Reply.', atNode: 'B', dir: 'back' },
-        { text: 'A receives the reply. Round-trip time \u2248 ' + rtt + ' ms.', atNode: 'A', dir: 'back', level: 'success', rtt }
+        { t: 'A sends ICMP Echo Request (Type 8, Code 0) toward B.', probe: 0, dir: 'out', type: '8', code: '0' },
+        { t: 'Request traverses R1 → R2 → R3 (each router decrements TTL and forwards).', probe: 3, dir: 'out' },
+        { t: 'B receives the Echo Request and replies with ICMP Echo Reply (Type 0, Code 0).', probe: 4, dir: 'back', type: '0', code: '0', lv: 'success' },
+        { t: 'Reply travels B → R3 → R2 → R1 → A.  Round-trip time ≈ ' + totalRtt + ' ms.', probe: 0, dir: 'back', lv: 'success', rtt: totalRtt }
       ];
     }
 
     function buildTracerouteSteps() {
-      const out = [];
-      const totalHops = path.nodes.length - 1;
-      for (let ttl = 1; ttl <= totalHops; ttl++) {
-        out.push({ text: 'Sending a probe with TTL = ' + ttl + '.', atNode: 'A', linkId: null, ttl });
-        for (let hop = 1; hop <= ttl; hop++) {
-          out.push({ text: 'Probe reaches ' + path.nodes[hop] + ' (TTL now ' + (ttl - hop) + ').', atNode: path.nodes[hop], linkId: path.links[hop - 1], ttl });
-        }
-        const lastNode = path.nodes[ttl];
-        if (ttl === totalHops) {
-          out.push({ text: 'TTL was enough to reach the destination \u2014 B replies with an Echo Reply. Traceroute complete \u2713', level: 'success', atNode: 'B', done: true });
+      var out = [];
+      var hops = PATH_NODES.length - 1;
+      for (var ttl = 1; ttl <= hops; ttl++) {
+        out.push({ t: 'Send probe with TTL=' + ttl + '.', probe: 0, dir: 'out', ttl: ttl });
+        /* probe reaches node at index ttl */
+        if (ttl < hops) {
+          out.push({ t: 'TTL expires at ' + PATH_NODES[ttl] + '.  It sends ICMP Time Exceeded (Type 11, Code 0) back to A.', probe: ttl, dir: 'back', type: '11', code: '0', lv: 'warning', hopFound: { n: ttl, node: PATH_NODES[ttl], delay: HOP_DELAYS[ttl - 1] } });
         } else {
-          out.push({ text: 'TTL expired at ' + lastNode + ' \u2014 it sends an ICMP Time Exceeded message back to A. Hop ' + ttl + ' = ' + lastNode, level: 'warning', atNode: lastNode, hopFound: { n: ttl, node: lastNode } });
+          out.push({ t: 'TTL is enough to reach B.  B replies with Echo Reply.  Traceroute complete.', probe: hops, dir: 'back', type: '0', code: '0', lv: 'success', hopFound: { n: ttl, node: 'B', delay: HOP_DELAYS[ttl - 1] } });
         }
       }
       return out;
     }
 
-    function rebuild() {
-      stop();
-      index = -1;
-      state = buildTopologyState();
-      steps = mode === 'ping' ? buildPingSteps() : buildTracerouteSteps();
-      network.sync(state, { animationSpeed: 1 });
-      renderParams();
-      paintMetrics();
-      ctx.log('Ready \u2014 ' + (mode === 'ping' ? 'pinging B from A.' : 'tracing the route from A to B.'));
+    function buildSteps() {
+      return mode === 'ping' ? buildPingSteps() : buildTracerouteSteps();
     }
 
-    function renderParams() {
-      ctx.params.hidden = false;
-      ctx.params.innerHTML = `
-        <div class="switch-tabs" role="tablist" aria-label="ICMP mode">
-          <button type="button" class="switch-tab ${mode === 'ping' ? 'is-active' : ''}" data-mode="ping" role="tab">Ping</button>
-          <button type="button" class="switch-tab ${mode === 'traceroute' ? 'is-active' : ''}" data-mode="traceroute" role="tab">Traceroute</button>
-        </div>
-      `;
-      ctx.params.querySelectorAll('.switch-tab').forEach((tab) => {
-        tab.addEventListener('click', () => {
-          if (tab.dataset.mode === mode) return;
-          mode = tab.dataset.mode;
-          rebuild();
-        });
-      });
+    /* ── SVG path diagram ─────────────────────────────────────────────── */
+    function svgDiagram() {
+      var step = steps[Math.max(0, index)] || {};
+      var W = 680, H = 90, nodeW = 56, nodeH = 32;
+      var gap = (W - PATH_NODES.length * nodeW) / (PATH_NODES.length + 1);
+
+      var html = '<svg class="icmp-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet">';
+
+      /* connection lines */
+      for (var i = 0; i < PATH_NODES.length - 1; i++) {
+        var x1 = gap + i * (nodeW + gap) + nodeW;
+        var x2 = gap + (i + 1) * (nodeW + gap);
+        html += '<line x1="' + x1 + '" y1="30" x2="' + x2 + '" y2="30" stroke="#ccc" stroke-width="1.5"/>';
+        html += '<text x="' + ((x1 + x2) / 2) + '" y="22" text-anchor="middle" font-size="8" fill="var(--ink-faint)">' + HOP_DELAYS[i] + 'ms</text>';
+      }
+
+      /* nodes */
+      for (var i = 0; i < PATH_NODES.length; i++) {
+        var x = gap + i * (nodeW + gap);
+        var isProbe = step.probe === i;
+        var isEnd = i === 0 || i === PATH_NODES.length - 1;
+        var fill = isProbe ? '#e3f2fd' : (isEnd ? '#e8f5e9' : '#fafafa');
+        var stroke = isProbe ? '#1976d2' : (isEnd ? '#66bb6a' : '#bbb');
+        html += '<rect x="' + x + '" y="14" width="' + nodeW + '" height="' + nodeH + '" rx="6" fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + (isProbe ? 2.5 : 1) + '"/>';
+        html += '<text x="' + (x + nodeW / 2) + '" y="35" text-anchor="middle" font-size="11" font-weight="' + (isEnd ? '700' : '400') + '" fill="var(--ink)">' + PATH_NODES[i] + '</text>';
+      }
+
+      /* animated probe indicator */
+      if (step.probe !== undefined && index >= 0) {
+        var px = gap + step.probe * (nodeW + gap) + nodeW / 2;
+        var col = step.dir === 'back' ? '#66bb6a' : '#42a5f5';
+        html += '<circle cx="' + px + '" cy="55" r="6" fill="' + col + '"><animate attributeName="r" values="4;8;4" dur="0.8s" repeatCount="indefinite"/></circle>';
+        html += '<text x="' + px + '" y="72" text-anchor="middle" font-size="8" fill="' + col + '">' + (step.dir === 'back' ? '← reply' : '→ probe') + '</text>';
+      }
+
+      html += '</svg>';
+      return html;
     }
 
-    function paintMetrics() {
+    /* ── hop discovery table (traceroute) ──────────────────────────────── */
+    function hopTable() {
+      if (mode !== 'traceroute') return '';
+      var hops = [];
+      for (var i = 0; i <= index && i < steps.length; i++) {
+        if (steps[i].hopFound) hops.push(steps[i].hopFound);
+      }
+      if (hops.length === 0) return '';
+      var html = '<div class="icmp-hops"><table class="icmp-hop-tbl">';
+      html += '<thead><tr><th>Hop</th><th>Node</th><th>RTT</th><th>ICMP Type</th></tr></thead><tbody>';
+      var cumRtt = 0;
+      for (var i = 0; i < hops.length; i++) {
+        cumRtt += hops[i].delay * 2;
+        var last = i === hops.length - 1;
+        html += '<tr' + (last ? ' class="icmp-hop-latest"' : '') + '><td>' + hops[i].n + '</td><td>' + hops[i].node + '</td><td>' + cumRtt + ' ms</td><td>' + (hops[i].node === 'B' ? 'Echo Reply' : 'Time Exceeded') + '</td></tr>';
+      }
+      html += '</tbody></table></div>';
+      return html;
+    }
+
+    /* ── ICMP packet breakdown ────────────────────────────────────────── */
+    function icmpPacket() {
+      var step = steps[Math.max(0, index)] || {};
+      if (!step.type) return '';
+      var typeNames = { '0': 'Echo Reply', '8': 'Echo Request', '11': 'Time Exceeded' };
+      var html = '<div class="icmp-pkt">';
+      html += '<div class="icmp-pkt-title">ICMP Header</div>';
+      html += '<div class="icmp-pkt-row"><span>Type</span><strong>' + step.type + ' (' + (typeNames[step.type] || '?') + ')</strong></div>';
+      html += '<div class="icmp-pkt-row"><span>Code</span><strong>' + step.code + '</strong></div>';
+      html += '<div class="icmp-pkt-row"><span>Checksum</span><strong>0x' + (Math.floor(Math.random() * 65535)).toString(16).toUpperCase() + '</strong></div>';
+      html += '</div>';
+      return html;
+    }
+
+    /* ── draw ──────────────────────────────────────────────────────────── */
+    function draw() {
+      mount.innerHTML = svgDiagram() + '<div class="icmp-bottom">' + hopTable() + icmpPacket() + '</div>';
+
+      var step = steps[Math.max(0, index)] || {};
       if (mode === 'ping') {
-        const done = index >= steps.length - 1;
         ctx.setMetrics([
           { label: 'Mode', value: 'Ping (Echo Request/Reply)' },
-          { label: 'Hops', value: String(path.links.length) },
-          { label: 'Path', value: path.nodes.join(' \u2192 ') },
-          { label: 'RTT', value: done ? steps[steps.length - 1].rtt + ' ms' : '\u2014' }
+          { label: 'Hops', value: String(PATH_NODES.length - 1) },
+          { label: 'Path', value: PATH_NODES.join(' → ') },
+          { label: 'RTT', value: step.rtt ? step.rtt + ' ms' : '—' }
         ]);
       } else {
-        const found = steps.slice(0, index + 1).map((s) => s.hopFound).filter(Boolean);
+        var found = 0;
+        for (var i = 0; i <= index; i++) { if (steps[i].hopFound) found++; }
         ctx.setMetrics([
           { label: 'Mode', value: 'Traceroute (TTL expiry)' },
-          { label: 'Total Hops', value: String(path.nodes.length - 1) },
-          { label: 'Hops Discovered', value: found.length + ' / ' + (path.nodes.length - 1) },
-          { label: 'Route So Far', value: found.length ? 'A \u2192 ' + found.map((f) => f.node).join(' \u2192 ') : 'A' }
+          { label: 'Total Hops', value: String(PATH_NODES.length - 1) },
+          { label: 'Discovered', value: found + ' / ' + (PATH_NODES.length - 1) },
+          { label: 'Method', value: 'Increment TTL, listen for Time Exceeded' }
         ]);
       }
+    }
+
+    /* ── params ────────────────────────────────────────────────────────── */
+    function renderParams() {
+      ctx.params.hidden = false;
+      var html = '<div class="icmp-modes">';
+      html += '<label class="switch-mode-option' + (mode === 'ping' ? ' is-checked' : '') + '"><input type="radio" name="icmpmode" value="ping"' + (mode === 'ping' ? ' checked' : '') + '> <strong>Ping</strong><br><span style="font-size:0.72rem;color:var(--ink-faint);">Echo Request / Reply</span></label>';
+      html += '<label class="switch-mode-option' + (mode === 'traceroute' ? ' is-checked' : '') + '"><input type="radio" name="icmpmode" value="traceroute"' + (mode === 'traceroute' ? ' checked' : '') + '> <strong>Traceroute</strong><br><span style="font-size:0.72rem;color:var(--ink-faint);">TTL expiry hop discovery</span></label>';
+      html += '</div>';
+      ctx.params.innerHTML = html;
+
+      var radios = ctx.params.querySelectorAll('input[name="icmpmode"]');
+      for (var i = 0; i < radios.length; i++) {
+        radios[i].addEventListener('change', function (e) {
+          mode = e.target.value;
+          rebuild();
+        });
+      }
+    }
+
+    function rebuild() {
+      stop(); index = -1;
+      steps = buildSteps();
+      renderParams(); draw();
+      ctx.log('Ready — ' + (mode === 'ping' ? 'pinging B from A.' : 'tracing the route from A to B.'));
     }
 
     function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
 
     function advance() {
       if (index >= steps.length - 1) { stop(); return; }
-      index += 1;
-      const s = steps[index];
-      state.entities = s.atNode ? [{ id: 'probe', kind: 'packet', atNode: s.atNode, linkId: s.linkId || null, seq: mode === 'traceroute' ? s.ttl : 1 }] : [];
-      network.sync(state, { animationSpeed: 1 });
-      ctx.log(s.text, s.level);
-      paintMetrics();
+      index++;
+      ctx.log(steps[index].t, steps[index].lv);
+      draw();
     }
 
     return {
-      initialize() {
-        ctx.canvas.classList.add('net-canvas');
-        ctx.canvas.innerHTML = '<div class="net-mount"></div>';
-        network = NetSim.Components.NetworkCanvas.mount(ctx.canvas.querySelector('.net-mount'), {});
+      initialize: function () {
+        ctx.canvas.innerHTML = '<div class="icmp-mount"></div>';
+        mount = ctx.canvas.querySelector('.icmp-mount');
         rebuild();
       },
-      start() { if (timer) return; timer = NetSim.SimTiming.setInterval(() => { if (index >= steps.length - 1) { stop(); return; } advance(); }, 700); },
-      pause() { stop(); },
-      step() { stop(); advance(); },
-      reset() { rebuild(); },
-      destroy() { stop(); }
+      start: function () { if (timer) return; timer = NetSim.SimTiming.setInterval(function () { if (index >= steps.length - 1) { stop(); return; } advance(); }, 800); },
+      pause: function () { stop(); },
+      step:  function () { stop(); advance(); },
+      reset: function () { rebuild(); },
+      destroy: function () { stop(); }
     };
   });
 
