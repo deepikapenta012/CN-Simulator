@@ -19,6 +19,7 @@
     if (parts.length !== 4) return null;
     var out = [];
     for (var i = 0; i < 4; i++) {
+      if (!/^\d{1,3}$/.test(parts[i])) return null;
       var n = parseInt(parts[i], 10);
       if (isNaN(n) || n < 0 || n > 255) return null;
       out.push(n);
@@ -35,6 +36,14 @@
   function toHex(n) {
     var s = n.toString(16).toUpperCase();
     return s.length < 2 ? '0' + s : s;
+  }
+
+  function ipToInt(octets) {
+    return octets[0] * 16777216 + octets[1] * 65536 + octets[2] * 256 + octets[3];
+  }
+
+  function intToIp(value) {
+    return [Math.floor(value / 16777216), Math.floor(value / 65536) % 256, Math.floor(value / 256) % 256, value % 256].join('.');
   }
 
   function classify(first) {
@@ -88,6 +97,7 @@
 
   NetSim.SimRegistry.register('ipv4', function factory(ctx) {
     var ipStr  = PRESETS[0].ip;
+    var prefix = 24;
     var preIdx = 0;
     var phases = [];
     var index  = -1;
@@ -99,12 +109,20 @@
 
     function analyse() {
       var octets = toOctets(ipStr);
-      if (!octets) return null;
+      if (!octets || prefix < 0 || prefix > 32 || prefix % 1 !== 0) return null;
       var bins = [];
       var hexs = [];
       for (var i = 0; i < 4; i++) { bins.push(toBin(octets[i])); hexs.push(toHex(octets[i])); }
       var ci = classify(octets[0]);
-      return { octets: octets, bins: bins, hexs: hexs, ci: ci, props: ipProps(octets) };
+      var blockSize = Math.pow(2, 32 - prefix);
+      var address = ipToInt(octets);
+      var network = Math.floor(address / blockSize) * blockSize;
+      var broadcast = network + blockSize - 1;
+      var usable = prefix <= 30 ? Math.max(0, blockSize - 2) : prefix === 31 ? 2 : 1;
+      return { octets: octets, bins: bins, hexs: hexs, ci: ci, props: ipProps(octets), prefix: prefix,
+        mask: intToIp(4294967296 - blockSize), network: intToIp(network), broadcast: intToIp(broadcast),
+        firstHost: prefix <= 30 ? intToIp(network + 1) : intToIp(network),
+        lastHost: prefix <= 30 ? intToIp(broadcast - 1) : intToIp(broadcast), usable: usable };
     }
 
     /* ── phases ────────────────────────────────────────────────────────── */
@@ -115,13 +133,10 @@
       var p = [];
       p.push({ t: 'Dotted-decimal address: ' + info.octets.join('.'), v: 'dec' });
       p.push({ t: 'Binary representation: ' + info.bins.join('.'), v: 'bin' });
-      p.push({ t: 'First octet ' + info.octets[0] + ' (binary ' + info.bins[0] + ') falls in range ' + ci.range + ' → Class ' + ci.cls + '.', v: 'cls' });
-      if (ci.mask) {
-        p.push({ t: 'Default classful mask: /' + ci.mask + ' (' + maskStr(ci.mask) + ').  Network portion = first ' + ci.mask + ' bits.', v: 'mask' });
-        p.push({ t: 'Host portion = remaining ' + (32 - ci.mask) + ' bits → up to ' + (Math.pow(2, 32 - ci.mask) - 2) + ' usable hosts per network.', v: 'host', lv: 'success' });
-      } else {
-        p.push({ t: 'Class ' + ci.cls + ' does not use a standard network/host split — ' + ci.net + '.', v: 'mask', lv: 'warning' });
-      }
+      p.push({ t: 'CIDR prefix /' + info.prefix + ' means the first ' + info.prefix + ' bits identify the network; ' + (32 - info.prefix) + ' bits remain for hosts.', v: 'mask' });
+      p.push({ t: 'Subnet mask: ' + info.mask + '. Network address: ' + info.network + '/' + info.prefix + '.', v: 'network' });
+      p.push({ t: 'Broadcast: ' + info.broadcast + '. Usable addresses: ' + info.firstHost + ' – ' + info.lastHost + ' (' + info.usable + ' total).', v: 'host', lv: 'success' });
+      p.push({ t: 'Historical classful range: Class ' + ci.cls + ' (' + ci.range + '); modern networks use the configured CIDR prefix instead.', v: 'cls' });
       p.push({ t: 'Properties: ' + info.props.join(', ') + '.', v: 'props', lv: 'success' });
       return p;
     }
@@ -135,8 +150,8 @@
       var vb = '0 0 ' + (totalW + 20) + ' 80';
       var html = '<svg class="ip4-svg" viewBox="' + vb + '" preserveAspectRatio="xMidYMid meet">';
 
-      var maskBits = info.ci.mask || 0;
-      var showSplit = index >= 3 && maskBits > 0;
+      var maskBits = info.prefix;
+      var showSplit = index >= 2 && maskBits > 0;
       var x = 10;
       for (var o = 0; o < 4; o++) {
         for (var b = 0; b < 8; b++) {
@@ -228,11 +243,12 @@
       var ci = info ? info.ci : null;
       if (!ci) return '';
       var rows = [
-        ['Class', ci.cls],
-        ['Range', ci.range],
-        ['Default Mask', ci.mask ? '/' + ci.mask + ' (' + maskStr(ci.mask) + ')' : 'N/A'],
-        ['Structure', ci.net],
-        ['Max Hosts', ci.mask ? String(Math.pow(2, 32 - ci.mask) - 2) : 'N/A']
+        ['CIDR Network', info.network + '/' + info.prefix],
+        ['Subnet Mask', info.mask],
+        ['Broadcast', info.broadcast],
+        ['Usable Hosts', String(info.usable)],
+        ['Historical Class', ci.cls + ' (' + ci.range + ')'],
+        ['Structure', info.prefix + ' network bits / ' + (32 - info.prefix) + ' host bits']
       ];
       var html = '<div class="ip4-info"><table class="ip4-info-tbl">';
       for (var i = 0; i < rows.length; i++) {
@@ -252,7 +268,7 @@
         html = svgBitStrip() + octetCards();
         if (index >= 2) html += classBar();
         if (index >= 3) html += infoBox();
-        if (index >= 5) html += propBadges();
+        if (index >= 6) html += propBadges();
       }
       mount.innerHTML = html;
 
@@ -260,9 +276,10 @@
         ctx.setMetrics([
           { label: 'Address', value: info.octets.join('.') },
           { label: 'Class', value: info.ci.cls },
-          { label: 'Default Mask', value: info.ci.mask ? '/' + info.ci.mask : 'N/A' },
-          { label: 'Network Bits', value: info.ci.mask ? String(info.ci.mask) : 'N/A' },
-          { label: 'Host Bits', value: info.ci.mask ? String(32 - info.ci.mask) : 'N/A' },
+          { label: 'Prefix', value: '/' + info.prefix },
+          { label: 'Network', value: info.network },
+          { label: 'Broadcast', value: info.broadcast },
+          { label: 'Usable Hosts', value: String(info.usable) },
           { label: 'Type', value: info.props[0] }
         ]);
       }
@@ -279,8 +296,8 @@
           '</label>';
       }
       html += '</div>';
-      html += '<div class="ip4-custom"><label>Custom IP</label>' +
-        '<input type="text" id="ip4Input" maxlength="15" value="' + ipStr + '" placeholder="e.g. 203.0.113.42"></div>';
+      html += '<div class="ip4-custom"><label>IPv4 / prefix</label>' +
+        '<input type="text" id="ip4Input" maxlength="18" value="' + ipStr + '/' + prefix + '" placeholder="e.g. 192.0.2.10/24"></div>';
       ctx.params.innerHTML = html;
 
       var radios = ctx.params.querySelectorAll('input[name="ip4pre"]');
@@ -292,7 +309,11 @@
         });
       }
       ctx.params.querySelector('#ip4Input').addEventListener('change', function (e) {
-        ipStr = e.target.value.trim() || PRESETS[0].ip;
+        var value = e.target.value.trim() || PRESETS[0].ip + '/24';
+        var parts = value.split('/');
+        ipStr = parts[0];
+        if (parts.length === 2 && /^\d{1,2}$/.test(parts[1])) prefix = Number(parts[1]);
+        else if (parts.length !== 1) prefix = -1;
         preIdx = -1;
         rebuild();
       });

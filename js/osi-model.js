@@ -45,7 +45,7 @@
         { title: 'Data Compression', simulationIds: ['compression'] }
       ],
       simulations: [
-        { id: 'encoding', name: 'Character Encoding', tag: 'representation', desc: 'Compare how text is represented across UTF-8 and UTF-16.', status: 'available' },
+        { id: 'encoding', name: 'Character Encoding', tag: 'representation', desc: 'Inspect Unicode code points and compare their UTF-8 and UTF-16BE byte sequences and sizes.', status: 'available' },
         { id: 'encryption', name: 'Encryption / Decryption', tag: 'security', desc: 'Visualize a repeating-key XOR teaching cipher transforming plaintext.', status: 'available' },
         { id: 'compression', name: 'Compression Basics', tag: 'efficiency', desc: 'See run-length encoding shrink repeated text and expand irregular text.', status: 'available' }
       ]
@@ -115,9 +115,9 @@
         { id: 'link-state', name: 'Link State Routing', tag: 'routing', desc: 'Flooding topology info and computing shortest paths.', status: 'available' },
         { id: 'ospf', name: 'OSPF', tag: 'interior gateway', desc: 'Area-based link-state routing within an autonomous system.', status: 'available' },
         { id: 'bgp', name: 'BGP', tag: 'exterior gateway', desc: 'Path-vector routing between autonomous systems.', status: 'available' },
-        { id: 'ipv4', name: 'IPv4 Addressing', tag: 'addressing', desc: 'Structure of a 32-bit address and its classes.', status: 'available' },
-        { id: 'ipv6', name: 'IPv6 Addressing', tag: 'addressing', desc: 'The 128-bit address space and abbreviation rules.', status: 'available' },
-        { id: 'subnetting', name: 'Subnetting', tag: 'addressing', desc: 'Splitting a network into smaller address blocks.', status: 'available' },
+        { id: 'ipv4', name: 'IPv4 Addressing', tag: 'addressing', desc: 'Explore CIDR prefixes, subnet masks, network and broadcast addresses, and usable host ranges.', status: 'available' },
+        { id: 'ipv6', name: 'IPv6 Addressing', tag: 'addressing', desc: 'Expand and compress IPv6 addresses, inspect address types, and identify network prefixes.', status: 'available' },
+        { id: 'subnetting', name: 'Subnetting', tag: 'addressing', desc: 'Borrow host bits to split a CIDR network into equal-sized subnets and inspect each address range.', status: 'available' },
         { id: 'cidr', name: 'CIDR', tag: 'addressing', desc: 'Classless prefixes and route aggregation.', status: 'available' },
         { id: 'nat', name: 'NAT', tag: 'translation', desc: 'Private-to-public address translation for outbound traffic.', status: 'available' },
         { id: 'arp', name: 'ARP', tag: 'resolution', desc: 'Resolving an IP address to a MAC address on the local link.', status: 'available' },

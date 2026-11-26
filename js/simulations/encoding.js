@@ -61,7 +61,7 @@
     var colors = ['#1565c0', '#2e7d32', '#e65100', '#6a1b9a', '#c62828', '#00838f', '#ad1457', '#4527a0'];
 
     var html = '<div class="enc-grid">';
-    html += '<div class="enc-grid-title">' + encoding.toUpperCase() + ' Encoding</div>';
+    html += '<div class="enc-grid-title">' + (encoding === 'utf-8' ? 'UTF-8' : 'UTF-16BE') + (encoding === 'utf-8' ? ' Encoding' : ' Code Units (big-endian bytes, no BOM)') + '</div>';
     html += '<table class="enc-grid-table"><thead><tr>';
     html += '<th>Char</th><th>Code Point</th><th>Bytes</th><th>Hex</th><th>Binary</th>';
     html += '</tr></thead><tbody>';
@@ -112,9 +112,9 @@
   }
 
   /* ---- SVG byte-count comparison bar chart ---- */
-  function renderBarChart(utf8Bytes, utf16Bytes, charCount) {
+  function renderBarChart(utf8Bytes, utf16Bytes) {
     var maxVal = Math.max(utf8Bytes, utf16Bytes, 1);
-    var W = 400, H = 100, barH = 28, pad = 70;
+    var W = 560, H = 110, barH = 28, pad = 90;
 
     var svg = '<svg class="enc-chart-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Byte count comparison">';
 
@@ -125,12 +125,12 @@
     svg += '<rect x="' + pad + '" y="12" width="' + w8 + '" height="' + barH + '" rx="4" fill="#1565c0" fill-opacity="0.75"/>';
     svg += '<text x="' + (pad + w8 + 6) + '" y="32" class="enc-chart-val" fill="#1565c0">' + utf8Bytes + 'B</text>';
 
-    svg += '<text x="' + (pad - 5) + '" y="68" text-anchor="end" class="enc-chart-label" fill="#e65100">UTF-16</text>';
+    svg += '<text x="' + (pad - 5) + '" y="68" text-anchor="end" class="enc-chart-label" fill="#e65100">UTF-16BE</text>';
     svg += '<rect x="' + pad + '" y="52" width="' + w16 + '" height="' + barH + '" rx="4" fill="#e65100" fill-opacity="0.75"/>';
     svg += '<text x="' + (pad + w16 + 6) + '" y="72" class="enc-chart-val" fill="#e65100">' + utf16Bytes + 'B</text>';
 
     var ratio = utf16Bytes > 0 ? (utf8Bytes / utf16Bytes * 100).toFixed(0) : '—';
-    svg += '<text x="' + (W / 2) + '" y="95" text-anchor="middle" class="enc-chart-note">UTF-8 is ' + ratio + '% of UTF-16 size</text>';
+    svg += '<text x="' + (W / 2) + '" y="104" text-anchor="middle" class="enc-chart-note">UTF-8 is ' + ratio + '% of UTF-16BE size (BOM excluded)</text>';
 
     svg += '</svg>';
     return svg;
@@ -143,14 +143,14 @@
     html += '<table class="enc-rules-table"><tr><th>Range</th><th>Bytes</th><th>Bit Pattern</th></tr>';
     html += '<tr><td>U+0000–007F</td><td>1</td><td><code>0xxxxxxx</code></td></tr>';
     html += '<tr><td>U+0080–07FF</td><td>2</td><td><code>110xxxxx 10xxxxxx</code></td></tr>';
-    html += '<tr><td>U+0800–FFFF</td><td>3</td><td><code>1110xxxx 10xxxxxx 10xxxxxx</code></td></tr>';
+    html += '<tr><td>U+0800–D7FF, E000–FFFF</td><td>3</td><td><code>1110xxxx 10xxxxxx 10xxxxxx</code></td></tr>';
     html += '<tr><td>U+10000–10FFFF</td><td>4</td><td><code>11110xxx 10xxxxxx 10xxxxxx 10xxxxxx</code></td></tr>';
     html += '</table></div>';
-    html += '<div class="enc-rules-col"><h4 class="enc-rules-title">UTF-16 — Fixed 2 or 4 bytes</h4>';
+    html += '<div class="enc-rules-col"><h4 class="enc-rules-title">UTF-16 — 2 or 4 bytes</h4>';
     html += '<table class="enc-rules-table"><tr><th>Range</th><th>Units</th><th>Mechanism</th></tr>';
-    html += '<tr><td>U+0000–FFFF</td><td>1 (2B)</td><td>Direct code unit</td></tr>';
+    html += '<tr><td>U+0000–D7FF, E000–FFFF</td><td>1 (2B)</td><td>Direct code unit</td></tr>';
     html += '<tr><td>U+10000–10FFFF</td><td>2 (4B)</td><td>Surrogate pair (D800–DBFF, DC00–DFFF)</td></tr>';
-    html += '</table></div>';
+    html += '</table><p class="enc-rules-note">Comparison uses UTF-16 big-endian bytes and excludes a byte-order mark (BOM). Real files can use UTF-16LE or UTF-16BE.</p></div>';
     html += '</div>';
     return html;
   }
@@ -166,6 +166,15 @@
     var codePoints = [];
     var currentHighlight = -1;
 
+    function renderSummary(utf8Bytes, utf16Bytes) {
+      var delta = Math.abs(utf8Bytes - utf16Bytes);
+      var result = utf8Bytes === utf16Bytes ? 'Both encodings use the same number of bytes for this text.' :
+        (utf8Bytes < utf16Bytes ? 'UTF-8 uses ' + delta + ' fewer bytes for this text.' : 'UTF-16BE uses ' + delta + ' fewer bytes for this text.');
+      return '<div class="enc-summary"><div class="enc-summary-card enc-summary-utf8"><span>UTF-8</span><strong>' + utf8Bytes + ' bytes</strong></div>' +
+        '<div class="enc-summary-card enc-summary-utf16"><span>UTF-16BE</span><strong>' + utf16Bytes + ' bytes</strong></div>' +
+        '<p class="enc-summary-note">' + result + ' Both represent the same Unicode text; the byte counts depend on the characters.</p></div>';
+    }
+
     function rebuild() {
       stop();
       index = -1;
@@ -179,13 +188,13 @@
     function draw() {
       var utf8 = renderByteGrid(text, 'utf-8');
       var utf16 = renderByteGrid(text, 'utf-16');
-      var chartHtml = renderBarChart(utf8.totalBytes, utf16.totalBytes, codePoints.length);
+      var chartHtml = renderBarChart(utf8.totalBytes, utf16.totalBytes);
       var rulesHtml = renderRules();
 
       // Highlight current row if stepping
       var highlight = currentHighlight >= 0 ? currentHighlight : -1;
 
-      host.innerHTML = chartHtml + '<div class="enc-grids-row">' + utf8.html + utf16.html + '</div>' + rulesHtml;
+      host.innerHTML = renderSummary(utf8.totalBytes, utf16.totalBytes) + chartHtml + '<div class="enc-grids-row">' + utf8.html + utf16.html + '</div>' + rulesHtml;
 
       // Highlight current character row
       if (highlight >= 0) {
@@ -202,7 +211,7 @@
         { label: 'Text', value: text.length > 20 ? text.substring(0, 18) + '…' : text },
         { label: 'Code Points', value: String(codePoints.length) },
         { label: 'UTF-8 Size', value: utf8.totalBytes + ' bytes' },
-        { label: 'UTF-16 Size', value: utf16.totalBytes + ' bytes' },
+        { label: 'UTF-16BE Size', value: utf16.totalBytes + ' bytes' },
         { label: 'Ratio', value: utf16.totalBytes > 0 ? (utf8.totalBytes / utf16.totalBytes * 100).toFixed(0) + '%' : '—' },
         { label: 'Current Char', value: currentHighlight >= 0 ? '"' + String.fromCodePoint(codePoints[currentHighlight]) + '" U+' + codePoints[currentHighlight].toString(16).toUpperCase().padStart(4, '0') : '—' }
       ]);
@@ -217,7 +226,7 @@
                 '<input type="radio" name="encPreset" value="' + k + '" ' + (k === preset ? 'checked' : '') + '> ' + PRESETS[k].label + '</label>';
       });
       html += '</fieldset>';
-      html += '<div class="sim-param-row"><label for="encText">Text</label><input id="encText" type="text" maxlength="30" value="' + text.replace(/"/g, '&quot;') + '"></div>';
+      html += '<div class="sim-param-row"><label for="encText">Text to encode</label><input id="encText" type="text" maxlength="30" value="' + text.replace(/"/g, '&quot;') + '"></div>';
 
       ctx.params.innerHTML = html;
       ctx.params.querySelectorAll('input[name="encPreset"]').forEach(function (r) {
@@ -229,7 +238,18 @@
       });
       var inp = ctx.params.querySelector('#encText');
       if (inp) {
-        inp.addEventListener('input', function (e) { text = e.target.value; preset = 'custom'; rebuild(); });
+        inp.addEventListener('input', function (e) {
+          text = e.target.value;
+          preset = 'custom';
+          stop();
+          currentHighlight = -1;
+          codePoints = getCodePoints(text);
+          ctx.params.querySelectorAll('input[name="encPreset"]').forEach(function (radio) {
+            radio.checked = radio.value === 'custom';
+            radio.closest('.switch-mode-option').classList.toggle('is-checked', radio.checked);
+          });
+          draw();
+        });
       }
     }
 

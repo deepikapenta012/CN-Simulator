@@ -14,7 +14,18 @@
 
   /* ── helpers ─────────────────────────────────────────────────────────── */
   function parseFull(str) {
-    var groups = str.split(':');
+    var groups;
+    if (str.indexOf('::') >= 0) {
+      if (str.indexOf('::') !== str.lastIndexOf('::')) return null;
+      var halves = str.split('::');
+      var left = halves[0] ? halves[0].split(':') : [];
+      var right = halves[1] ? halves[1].split(':') : [];
+      var missing = 8 - left.length - right.length;
+      if (missing < 1) return null;
+      groups = left.concat(new Array(missing).fill('0'), right);
+    } else {
+      groups = str.split(':');
+    }
     if (groups.length !== 8) return null;
     for (var i = 0; i < 8; i++) {
       if (!/^[0-9a-fA-F]{1,4}$/.test(groups[i])) return null;
@@ -65,7 +76,8 @@
       if (full[7] === '0001') return { type: 'Loopback (::1)', scope: 'Node', col: '#ef5350' };
       if (full[7] === '0000') return { type: 'Unspecified (::)', scope: 'N/A', col: '#90a4ae' };
     }
-    if (first.substring(0, 3) === 'fe8') return { type: 'Link-Local', scope: 'Link', col: '#42a5f5' };
+    var firstValue = parseInt(first, 16);
+    if (firstValue >= 0xfe80 && firstValue <= 0xfebf) return { type: 'Link-Local', scope: 'Link', col: '#42a5f5' };
     if (first.substring(0, 2) === 'fc' || first.substring(0, 2) === 'fd')
       return { type: 'Unique Local (ULA)', scope: 'Organisation', col: '#66bb6a' };
     if (first.substring(0, 2) === 'ff') return { type: 'Multicast', scope: 'Variable', col: '#ab47bc' };
@@ -87,6 +99,7 @@
 
   NetSim.SimRegistry.register('ipv6', function factory(ctx) {
     var addrStr = PRESETS[0].label;
+    var prefix = 64;
     var preIdx  = 0;
     var phases  = [];
     var index   = -1;
@@ -97,12 +110,17 @@
     /* ── analysis ──────────────────────────────────────────────────────── */
     function analyse() {
       var full = parseFull(addrStr);
-      if (!full) return null;
+      if (!full || prefix < 0 || prefix > 128 || prefix % 1 !== 0) return null;
       var stripped = stripLeading(full);
       var compressed = compress(stripped);
       var run = findLongestRun(stripped);
       var at = addrType(full);
-      return { full: full, stripped: stripped, compressed: compressed, run: run, at: at };
+      var bits = full.join('').split('').map(function (hex) { return parseInt(hex, 16).toString(2).padStart(4, '0'); }).join('');
+      var networkBits = bits.slice(0, prefix).padEnd(128, '0');
+      var network = [];
+      for (var i = 0; i < 8; i++) network.push(parseInt(networkBits.slice(i * 16, (i + 1) * 16), 2).toString(16).padStart(4, '0'));
+      return { full: full, stripped: stripped, compressed: compressed, run: run, at: at, prefix: prefix,
+        network: network.join(':') + '/' + prefix };
     }
 
     function buildPhases() {
@@ -110,6 +128,8 @@
       if (!info) return [{ t: 'Invalid full IPv6 address — enter 8 groups of 1–4 hex digits separated by colons.', lv: 'error', v: 'err' }];
       var p = [];
       p.push({ t: 'Full 128-bit address (8 × 16-bit groups): ' + info.full.join(':'), v: 'full' });
+      p.push({ t: 'Prefix /' + info.prefix + ' identifies the network; ' + (128 - info.prefix) + ' remaining bits identify the interface.', v: 'prefix' });
+      p.push({ t: 'Network prefix: ' + info.network + '.', v: 'network' });
       p.push({ t: 'Step 1 — Strip leading zeros in each group: ' + info.stripped.join(':'), v: 'strip' });
       if (info.run) {
         p.push({ t: 'Step 2 — Longest run of all-zero groups: position ' + info.run.s + '–' + (info.run.s + info.run.l - 1) + ' (' + info.run.l + ' groups).', v: 'run' });
@@ -130,8 +150,8 @@
       var H = 68;
       var html = '<svg class="ip6-svg" viewBox="0 0 ' + totalW + ' ' + H + '" preserveAspectRatio="xMidYMid meet">';
 
-      var showStripped = index >= 1;
-      var showRun      = index >= 2;
+      var showStripped = index >= 3;
+      var showRun      = index >= 4;
       var groups = showStripped ? info.stripped : info.full;
 
       for (var i = 0; i < 8; i++) {
@@ -152,10 +172,11 @@
 
     /* ── comparison box ───────────────────────────────────────────────── */
     function compBox() {
-      if (!info || index < 3) return '';
+      if (!info || index < 5) return '';
       var html = '<div class="ip6-compare">';
       html += '<div class="ip6-cmp-row"><span class="ip6-cmp-lbl">Full</span><span class="ip6-cmp-val">' + info.full.join(':') + '</span></div>';
       html += '<div class="ip6-cmp-row"><span class="ip6-cmp-lbl">Compressed</span><span class="ip6-cmp-val ip6-cmp-hl">' + info.compressed + '</span></div>';
+      html += '<div class="ip6-cmp-row"><span class="ip6-cmp-lbl">Network</span><span class="ip6-cmp-val">' + info.network + '</span></div>';
       html += '<div class="ip6-cmp-row"><span class="ip6-cmp-lbl">Savings</span><span class="ip6-cmp-val">' + (info.full.join(':').length - info.compressed.length) + ' characters shorter</span></div>';
       html += '</div>';
       return html;
@@ -163,7 +184,7 @@
 
     /* ── type badge ───────────────────────────────────────────────────── */
     function typeBadge() {
-      if (!info || index < 4) return '';
+      if (!info || index < 6) return '';
       return '<div class="ip6-type-badge" style="border-color:' + info.at.col + ';color:' + info.at.col + ';">' +
         '<strong>' + info.at.type + '</strong> &nbsp;·&nbsp; Scope: ' + info.at.scope +
         '</div>';
@@ -184,6 +205,8 @@
         ctx.setMetrics([
           { label: 'Full Address', value: info.full.join(':') },
           { label: 'Compressed', value: info.compressed },
+          { label: 'Prefix', value: '/' + info.prefix },
+          { label: 'Network', value: info.network },
           { label: 'Groups Collapsed', value: info.run ? String(info.run.l) : '0' },
           { label: 'Char Savings', value: String(info.full.join(':').length - info.compressed.length) },
           { label: 'Type', value: info.at.type },
@@ -203,8 +226,8 @@
           '</label>';
       }
       html += '</div>';
-      html += '<div class="ip6-custom"><label>Custom (8 groups, colon-separated)</label>' +
-        '<input type="text" id="ip6Input" maxlength="39" value="' + addrStr + '"></div>';
+      html += '<div class="ip6-custom"><label>IPv6 / prefix</label>' +
+        '<input type="text" id="ip6Input" maxlength="43" value="' + addrStr + '/' + prefix + '" placeholder="e.g. 2001:db8::1/64"></div>';
       ctx.params.innerHTML = html;
 
       var radios = ctx.params.querySelectorAll('input[name="ip6pre"]');
@@ -216,7 +239,11 @@
         });
       }
       ctx.params.querySelector('#ip6Input').addEventListener('change', function (e) {
-        addrStr = e.target.value.trim() || PRESETS[0].label;
+        var value = e.target.value.trim() || PRESETS[0].label + '/64';
+        var parts = value.split('/');
+        addrStr = parts[0];
+        if (parts.length === 2 && /^\d{1,3}$/.test(parts[1])) prefix = Number(parts[1]);
+        else if (parts.length !== 1) prefix = -1;
         preIdx = -1;
         rebuild();
       });

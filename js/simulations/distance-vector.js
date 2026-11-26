@@ -1,7 +1,7 @@
 /* ==========================================================================
    NetSim — simulations/distance-vector.js   (rebuilt)
    Bellman-Ford distance-vector routing with:
-   • SVG 5-router topology (A–B–C–D–E) with animated link costs
+   • SVG 5-router topology with redundant routes and animated link costs
    • Colour-coded distance table — changed cells highlighted
    • Round-by-round convergence animation
    • Link failure + count-to-infinity or split-horizon-with-poison-reverse
@@ -12,9 +12,13 @@
   'use strict';
 
   var NODES = ['A', 'B', 'C', 'D', 'E'];
+  var NODE_POS = {
+    A: { x: 90, y: 220 }, B: { x: 300, y: 220 },
+    C: { x: 520, y: 105 }, D: { x: 520, y: 335 }, E: { x: 780, y: 220 }
+  };
   var LINK_PAIRS = [
-    { a: 'A', b: 'B' }, { a: 'B', b: 'C' },
-    { a: 'C', b: 'D' }, { a: 'D', b: 'E' }
+    { a: 'A', b: 'B' }, { a: 'B', b: 'C' }, { a: 'B', b: 'D' },
+    { a: 'C', b: 'D' }, { a: 'C', b: 'E' }, { a: 'D', b: 'E' }
   ];
 
   var INF = Infinity, INF_CAP = 16, MAX_ROUNDS = 40;
@@ -146,38 +150,43 @@
     /* ── SVG topology ─────────────────────────────────────────────────── */
     function svgTopology() {
       var r = rounds[Math.max(0, index)];
-      var W = 680, H = 70, nodeR = 18;
-      var gap = (W - NODES.length * nodeR * 2) / (NODES.length + 1);
+      var W = 900, H = 440, nodeR = 36;
       var html = '<svg class="dv-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet">';
 
       /* links */
       for (var i = 0; i < LINK_PAIRS.length; i++) {
-        var ai = NODES.indexOf(LINK_PAIRS[i].a), bi = NODES.indexOf(LINK_PAIRS[i].b);
-        var x1 = gap + ai * (nodeR * 2 + gap) + nodeR;
-        var x2 = gap + bi * (nodeR * 2 + gap) + nodeR;
-        var active = false;
+        var pair = LINK_PAIRS[i];
+        var from = NODE_POS[pair.a], to = NODE_POS[pair.b];
+        var dx = to.x - from.x, dy = to.y - from.y;
+        var length = Math.sqrt(dx * dx + dy * dy);
+        var ux = dx / length, uy = dy / length;
+        var x1 = from.x + ux * nodeR, y1 = from.y + uy * nodeR;
+        var x2 = to.x - ux * nodeR, y2 = to.y - uy * nodeR;
+        var active = false, linkCost = '';
         for (var li = 0; li < r.links.length; li++) {
-          if ((r.links[li].a === LINK_PAIRS[i].a && r.links[li].b === LINK_PAIRS[i].b) ||
-              (r.links[li].b === LINK_PAIRS[i].a && r.links[li].a === LINK_PAIRS[i].b)) { active = true; break; }
+          if ((r.links[li].a === pair.a && r.links[li].b === pair.b) ||
+              (r.links[li].b === pair.a && r.links[li].a === pair.b)) {
+            active = true; linkCost = String(r.links[li].cost); break;
+          }
         }
-        var linkCost = '';
-        for (var li = 0; li < r.links.length; li++) {
-          if ((r.links[li].a === LINK_PAIRS[i].a && r.links[li].b === LINK_PAIRS[i].b)) { linkCost = String(r.links[li].cost); break; }
-        }
+        var midX = (x1 + x2) / 2, midY = (y1 + y2) / 2;
+        var labelX = midX - uy * 18, labelY = midY + ux * 18;
         if (active) {
-          html += '<line x1="' + x1 + '" y1="35" x2="' + x2 + '" y2="35" stroke="#66bb6a" stroke-width="2.5"/>';
-          html += '<text x="' + ((x1 + x2) / 2) + '" y="22" text-anchor="middle" font-size="10" font-weight="700" fill="#2e7d32">' + linkCost + '</text>';
+          html += '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="#66bb6a" stroke-width="4" stroke-linecap="round"/>';
+          html += '<rect x="' + (labelX - 14) + '" y="' + (labelY - 12) + '" width="28" height="22" rx="7" fill="#fff" stroke="#a5d6a7" stroke-width="1.5"/>';
+          html += '<text x="' + labelX + '" y="' + (labelY + 4) + '" text-anchor="middle" font-size="13" font-weight="700" fill="#2e7d32">' + linkCost + '</text>';
         } else {
-          html += '<line x1="' + x1 + '" y1="35" x2="' + x2 + '" y2="35" stroke="#ef5350" stroke-width="2" stroke-dasharray="5,4"/>';
-          html += '<text x="' + ((x1 + x2) / 2) + '" y="22" text-anchor="middle" font-size="10" fill="#ef5350">✗</text>';
+          html += '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="#ef5350" stroke-width="3" stroke-dasharray="8,6"/>';
+          html += '<text x="' + labelX + '" y="' + (labelY + 5) + '" text-anchor="middle" font-size="18" font-weight="700" fill="#ef5350">×</text>';
         }
       }
 
       /* nodes */
       for (var i = 0; i < NODES.length; i++) {
-        var cx = gap + i * (nodeR * 2 + gap) + nodeR;
-        html += '<circle cx="' + cx + '" cy="35" r="' + nodeR + '" fill="#e3f2fd" stroke="#1976d2" stroke-width="2"/>';
-        html += '<text x="' + cx + '" y="40" text-anchor="middle" font-size="12" font-weight="700" fill="#1565c0">' + NODES[i] + '</text>';
+        var pos = NODE_POS[NODES[i]];
+        html += '<circle cx="' + pos.x + '" cy="' + pos.y + '" r="' + nodeR + '" fill="#e3f2fd" stroke="#1976d2" stroke-width="3"/>';
+        html += '<text x="' + pos.x + '" y="' + (pos.y + 6) + '" text-anchor="middle" font-size="20" font-weight="700" fill="#1565c0">' + NODES[i] + '</text>';
+        html += '<text x="' + pos.x + '" y="' + (pos.y + nodeR + 20) + '" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink-faint)">Router ' + NODES[i] + '</text>';
       }
 
       html += '</svg>';
@@ -247,7 +256,7 @@
       rounds = buildRounds();
       renderParams(); draw();
       var costsStr = curLinks.map(function (l) { return l.a + '\u2013' + l.b + ':' + l.cost; }).join(', ');
-      ctx.log('Ready — 5 routers with link costs [' + costsStr + '].');
+      ctx.log('Ready — 5 routers with redundant routes and link costs [' + costsStr + '].');
     }
 
     function stop() { if (timer) { NetSim.SimTiming.clearInterval(timer); timer = null; } }
