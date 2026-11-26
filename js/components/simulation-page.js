@@ -111,8 +111,8 @@
       </div>
       <div class="sim-layout">
         <div>
-          <div class="sim-canvas ${ERROR_CONTROL_ALGORITHMS[sim.id] ? 'error-control-canvas' : ''}" id="simCanvas"></div>
           ${ERROR_CONTROL_ALGORITHMS[sim.id] ? '' : NetSim.Components.controlsHTML()}
+          <div class="sim-canvas ${ERROR_CONTROL_ALGORITHMS[sim.id] ? 'error-control-canvas' : ''}" id="simCanvas"></div>
           <div class="sim-params" id="simParams" hidden></div>
         </div>
       </div>

@@ -40,7 +40,7 @@
             <div class="kv"><dt>Responsibility</dt><dd>${layer.responsibility}</dd></div>
             <div class="kv"><dt>Common protocols</dt><dd class="mono">${layer.protocols.join(' · ')}</dd></div>
             <div class="kv"><dt>Data unit</dt><dd class="mono">${layer.dataUnit}</dd></div>
-            <div class="kv"><dt>Simulations</dt><dd>${layer.simulations.length} available</dd></div>
+            <div class="kv"><dt>Simulations</dt><dd>${layer.simulations.length}</dd></div>
           </dl>
         </div>
       `;
@@ -69,7 +69,7 @@
   function layerButtonHTML(layer) {
     return `
       <button class="osi-layer" type="button" data-layer-id="${layer.id}" role="listitem"
-        aria-label="Layer ${layer.number}, ${layer.name}. ${layer.simulations.length} simulations available.">
+        aria-label="Layer ${layer.number}, ${layer.name}. ${layer.simulations.length} simulations.">
         <span class="osi-layer-num">${layer.number}</span>
         <span class="osi-layer-body">
           <span class="osi-layer-name">${layer.name}</span>

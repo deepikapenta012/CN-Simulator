@@ -35,8 +35,8 @@
 
       <div class="sim-layout">
         <div>
-          <div class="sim-canvas" id="simCanvas"></div>
           ${NetSim.Components.controlsHTML()}
+          <div class="sim-canvas" id="simCanvas"></div>
           <div class="sim-params" id="simParams" hidden></div>
         </div>
         <div class="sim-side">
